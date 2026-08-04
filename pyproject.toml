@@ -1,0 +1,24 @@
+[project]
+name = "ahpo-sim"
+version = "0.1.0"
+description = "Adaptive Hydraulic Pump Optimizer - Phase 1 historical data simulation"
+requires-python = ">=3.10"
+dependencies = [
+    "pandas>=2.0",
+    "numpy>=1.24",
+    "python-dotenv>=1.0",
+    "matplotlib>=3.8",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4"]
+
+[tool.pytest.ini_options]
+testpaths = ["ahpo_sim/tests"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["ahpo_sim*"]
