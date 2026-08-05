@@ -58,19 +58,22 @@ class CharacteristicMapCell:
         self.cop_m2 += delta * delta2
 
         # Gliding, COP-weighted update of the optimal speed: observations with a
-        # higher COP pull the estimate more strongly, and the step size shrinks
-        # automatically as more (weight-carrying) observations accumulate.
-        if cop > 0:
-            self.cop_weight_sum += cop
-            if self.optimal_charge_pump_speed is None:
-                self.optimal_charge_pump_speed = charge_pump_speed
-            else:
-                weight = cop / self.cop_weight_sum
-                self.optimal_charge_pump_speed += weight * (
-                    charge_pump_speed - self.optimal_charge_pump_speed
-                )
-            if cop > self.best_cop:
-                self.best_cop = cop
+        # higher COP magnitude pull the estimate more strongly, and the step size
+        # shrinks automatically as more (weight-carrying) observations accumulate.
+        # abs(cop) is used as the weight so cooling (negative COP) is handled
+        # correctly — a higher (less negative) COP still wins via the best_cop
+        # comparison below.
+        weight_value = abs(cop) if cop != 0 else 1e-6
+        self.cop_weight_sum += weight_value
+        if self.optimal_charge_pump_speed is None:
+            self.optimal_charge_pump_speed = charge_pump_speed
+        else:
+            weight = weight_value / self.cop_weight_sum
+            self.optimal_charge_pump_speed += weight * (
+                charge_pump_speed - self.optimal_charge_pump_speed
+            )
+        if cop > self.best_cop:
+            self.best_cop = cop
 
         self.last_updated = timestamp
         self.source = source
@@ -81,7 +84,7 @@ class CharacteristicMapCell:
             "outdoor_temp_bin": self.outdoor_temp_bin,
             "compressor_freq_bin": self.compressor_freq_bin,
             "optimal_charge_pump_speed": self.optimal_charge_pump_speed,
-            "best_cop": self.best_cop,
+            "best_cop": self.best_cop if math.isfinite(self.best_cop) else None,
             "n_measurements": self.n_measurements,
             "cop_mean": self.cop_mean,
             "cop_std": self.cop_std,
@@ -174,7 +177,7 @@ class CharacteristicMap:
             cop_mean = float(record["cop_mean"]) if record.get("cop_mean") is not None else 0.0
             cop_weight_sum = record.get("cop_weight_sum")
             cop_weight_sum = (
-                float(cop_weight_sum) if cop_weight_sum is not None else cop_mean * n
+                float(cop_weight_sum) if cop_weight_sum is not None else abs(cop_mean) * n
             )  # approx fallback for records without this field
             last_updated_raw = record.get("last_updated")
             last_updated = datetime.fromisoformat(last_updated_raw) if last_updated_raw else None
