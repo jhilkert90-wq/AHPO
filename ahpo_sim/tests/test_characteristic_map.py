@@ -36,13 +36,14 @@ def test_update_raises_on_missing_values() -> None:
         cm.update(math.nan, 40.0, charge_pump_speed=30.0, cop=4.0)
 
 
-def test_record_ignores_non_positive_cop_for_speed_but_counts_measurement() -> None:
-    # Edge case: COP <= 0 must not move the tracked optimum, but still counts.
+def test_record_zero_cop_uses_minimal_weight_and_counts_measurement() -> None:
+    # COP=0 now uses a tiny weight (1e-6) so the optimum barely moves but still updates.
     cm = CharacteristicMap()
     cell = cm.update(5.0, 40.0, charge_pump_speed=30.0, cop=4.0)
     cm.update(5.0, 40.0, charge_pump_speed=80.0, cop=0.0)
     assert cell.n_measurements == 2
-    assert cell.optimal_charge_pump_speed == 30.0
+    # The tiny 1e-6 weight should cause only a negligible shift from 30.0
+    assert abs(cell.optimal_charge_pump_speed - 30.0) < 0.001
 
 
 def test_cop_std_with_single_measurement_is_zero() -> None:
