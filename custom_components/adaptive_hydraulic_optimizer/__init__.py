@@ -64,9 +64,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.info("AHPO characteristic map stored at: %s", storage_path)
 
     phase_manager = PhaseManager(
-        # Pass a dummy map here; the actual per-mode maps are used inside LearningEngine.
-        # PhaseManager only needs the map for active_cell_fraction(); we pass the heat map
-        # as the "primary" map for that purpose (sensors read either map as needed).
+        # Pass heat_map as the backing map for PhaseManager.active_cell_fraction().
+        # Sensors and diagnostics compute the fraction across both maps directly,
+        # so heat_map here only serves as the fallback for any direct calls to
+        # phase_manager.active_cell_fraction().
         heat_map,
         confidence_threshold=float(opts[OPT_CONFIDENCE_THRESHOLD]),
         min_samples=int(opts[OPT_CONFIDENCE_MIN_SAMPLES]),
