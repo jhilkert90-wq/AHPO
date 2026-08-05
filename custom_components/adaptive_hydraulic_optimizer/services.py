@@ -36,7 +36,7 @@ _EXPORT_SCHEMA = vol.Schema({vol.Required(ATTR_PATH): cv.string})
 
 
 def async_register_services(hass: HomeAssistant) -> None:
-    """Register the integration's services once (shared across all config entries)."""
+    """Register the integration's services idempotently (shared across all config entries)."""
 
     async def _async_reset_map(call: ServiceCall) -> None:
         for entry_data in hass.data.get(DOMAIN, {}).values():
@@ -63,12 +63,16 @@ def async_register_services(hass: HomeAssistant) -> None:
 
             await hass.async_add_executor_job(_write)
 
-    hass.services.async_register(DOMAIN, SERVICE_RESET_MAP, _async_reset_map)
-    hass.services.async_register(DOMAIN, SERVICE_RESET_CONFIDENCE, _async_reset_confidence)
-    hass.services.async_register(
-        DOMAIN, SERVICE_SET_PHASE_OVERRIDE, _async_set_phase_override, schema=_PHASE_OVERRIDE_SCHEMA
-    )
-    hass.services.async_register(DOMAIN, SERVICE_EXPORT_MAP, _async_export_map, schema=_EXPORT_SCHEMA)
+    if not hass.services.has_service(DOMAIN, SERVICE_RESET_MAP):
+        hass.services.async_register(DOMAIN, SERVICE_RESET_MAP, _async_reset_map)
+    if not hass.services.has_service(DOMAIN, SERVICE_RESET_CONFIDENCE):
+        hass.services.async_register(DOMAIN, SERVICE_RESET_CONFIDENCE, _async_reset_confidence)
+    if not hass.services.has_service(DOMAIN, SERVICE_SET_PHASE_OVERRIDE):
+        hass.services.async_register(
+            DOMAIN, SERVICE_SET_PHASE_OVERRIDE, _async_set_phase_override, schema=_PHASE_OVERRIDE_SCHEMA
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_EXPORT_MAP):
+        hass.services.async_register(DOMAIN, SERVICE_EXPORT_MAP, _async_export_map, schema=_EXPORT_SCHEMA)
 
 
 def async_unregister_services(hass: HomeAssistant) -> None:

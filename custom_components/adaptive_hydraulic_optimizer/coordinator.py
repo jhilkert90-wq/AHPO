@@ -16,7 +16,8 @@ from homeassistant.core import Event, EventStateChangedData, HomeAssistant, call
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
 
 from .const import (
-    CONF_CHARGE_PUMP_SPEED,
+    CONF_CHARGE_PUMP_SPEED_INPUT,
+    CONF_CHARGE_PUMP_SPEED_OUTPUT,
     CONF_COMPRESSOR_FREQUENCY,
     CONF_ERROR_STATUS,
     CONF_OPERATING_MODE,
@@ -66,7 +67,7 @@ class AhpoCoordinator:
         tracked_entities = [
             entity_id
             for key, entity_id in self._entity_map.items()
-            if key in (CONF_CHARGE_PUMP_SPEED, CONF_COMPRESSOR_FREQUENCY, CONF_OUTDOOR_TEMP)
+            if key in (CONF_CHARGE_PUMP_SPEED_INPUT, CONF_COMPRESSOR_FREQUENCY, CONF_OUTDOOR_TEMP)
         ]
         self._unsubscribers.append(
             async_track_state_change_event(self._hass, tracked_entities, self._async_on_state_change)
@@ -103,7 +104,7 @@ class AhpoCoordinator:
             timestamp=now,
             outdoor_temp=row["outdoor_temp"],
             compressor_frequency=row["compressor_frequency"],
-            charge_pump_speed=row["charge_pump_speed"],
+            charge_pump_speed=row[CONF_CHARGE_PUMP_SPEED_INPUT],
             cop=cop,
         )
         if observation is None:
@@ -156,12 +157,16 @@ class AhpoCoordinator:
         return state is not None and state.state == "on"
 
     async def _async_write_pump_speed(self, speed: float) -> None:
-        """Write the proposed speed to the mapped pump entity (Phase B only).
+        """Write the proposed speed to the mapped pump output entity (Phase B only).
 
-        Any failure here (unsupported domain, service-call error) sets pump_write_error,
-        which forces Phase A on the next cycle until a write succeeds again.
+        If no output entity is configured (passive-only mode), the write is silently
+        skipped.  Any failure (unsupported domain, service-call error) sets
+        pump_write_error, which forces Phase A on the next cycle until a write succeeds.
         """
-        entity_id = self._entity_map[CONF_CHARGE_PUMP_SPEED]
+        entity_id = self._entity_map.get(CONF_CHARGE_PUMP_SPEED_OUTPUT)
+        if not entity_id:
+            # Passive-only mode — no writable entity configured.
+            return
         domain = entity_id.split(".", 1)[0]
         if domain not in ("number", "input_number"):
             _LOGGER.error("Cannot write charge_pump_speed: unsupported entity domain %r", domain)

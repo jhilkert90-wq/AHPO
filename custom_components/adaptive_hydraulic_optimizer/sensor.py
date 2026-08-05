@@ -11,6 +11,9 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
 from .coordinator import AhpoCoordinator
+from .core.characteristic_map import CharacteristicMap
+from .core.phase_manager import Phase, PhaseManager
+from .entity_base import ahpo_device_info
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -79,7 +82,15 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     coordinator: AhpoCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
-    async_add_entities(AhpoSensor(coordinator, entry, description) for description in SENSOR_DESCRIPTIONS)
+    characteristic_map: CharacteristicMap = hass.data[DOMAIN][entry.entry_id]["characteristic_map"]
+    phase_manager: PhaseManager = hass.data[DOMAIN][entry.entry_id]["phase_manager"]
+
+    entities: list[SensorEntity] = [
+        AhpoSensor(coordinator, entry, description) for description in SENSOR_DESCRIPTIONS
+    ]
+    entities.append(AhpoTotalCellCountSensor(coordinator, characteristic_map, entry))
+    entities.append(AhpoPassiveCellCountSensor(coordinator, characteristic_map, phase_manager, entry))
+    async_add_entities(entities)
 
 
 class AhpoSensor(SensorEntity):
@@ -95,6 +106,7 @@ class AhpoSensor(SensorEntity):
         self.entity_description = description
         self._coordinator = coordinator
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
+        self._attr_device_info = ahpo_device_info(entry)
 
     @property
     def native_value(self) -> float | str | None:
@@ -105,3 +117,69 @@ class AhpoSensor(SensorEntity):
 
     async def async_will_remove_from_hass(self) -> None:
         self._coordinator.remove_listener(self.async_write_ha_state)
+
+
+class AhpoTotalCellCountSensor(SensorEntity):
+    """Total number of learned characteristic-map cells."""
+
+    _attr_should_poll = False
+    _attr_has_entity_name = True
+    _attr_name = "Total map cells"
+    _attr_icon = "mdi:grid"
+    _attr_native_unit_of_measurement = "cells"
+
+    def __init__(
+        self,
+        coordinator: AhpoCoordinator,
+        characteristic_map: CharacteristicMap,
+        entry: ConfigEntry,
+    ) -> None:
+        self._coordinator = coordinator
+        self._characteristic_map = characteristic_map
+        self._attr_unique_id = f"{entry.entry_id}_total_cell_count"
+        self._attr_device_info = ahpo_device_info(entry)
+
+    @property
+    def native_value(self) -> int:
+        return len(self._characteristic_map.all_cells())
+
+    async def async_added_to_hass(self) -> None:
+        self._coordinator.add_listener(self.async_write_ha_state)
+
+    async def async_will_remove_from_hass(self) -> None:
+        self._coordinator.remove_listener(self.async_write_ha_state)
+
+
+class AhpoPassiveCellCountSensor(SensorEntity):
+    """Number of characteristic-map cells still in passive (Phase A) learning mode."""
+
+    _attr_should_poll = False
+    _attr_has_entity_name = True
+    _attr_name = "Passive map cells"
+    _attr_icon = "mdi:grid-off"
+    _attr_native_unit_of_measurement = "cells"
+
+    def __init__(
+        self,
+        coordinator: AhpoCoordinator,
+        characteristic_map: CharacteristicMap,
+        phase_manager: PhaseManager,
+        entry: ConfigEntry,
+    ) -> None:
+        self._coordinator = coordinator
+        self._characteristic_map = characteristic_map
+        self._phase_manager = phase_manager
+        self._attr_unique_id = f"{entry.entry_id}_passive_cell_count"
+        self._attr_device_info = ahpo_device_info(entry)
+
+    @property
+    def native_value(self) -> int:
+        cells = self._characteristic_map.all_cells()
+        return sum(1 for cell in cells if self._phase_manager.get_phase(cell) == Phase.PASSIVE)
+
+    async def async_added_to_hass(self) -> None:
+        self._coordinator.add_listener(self.async_write_ha_state)
+
+    async def async_will_remove_from_hass(self) -> None:
+        self._coordinator.remove_listener(self.async_write_ha_state)
+

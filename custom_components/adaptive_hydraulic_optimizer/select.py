@@ -8,6 +8,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
 from .core.phase_manager import Phase, PhaseManager
+from .entity_base import ahpo_device_info
 
 OPTION_AUTOMATIC = "automatic"
 OPTION_PASSIVE = "passive"
@@ -40,6 +41,7 @@ class AhpoPhaseOverrideSelect(SelectEntity):
         self._phase_manager = phase_manager
         self._attr_unique_id = f"{entry.entry_id}_phase_override"
         self._attr_current_option = OPTION_AUTOMATIC
+        self._attr_device_info = ahpo_device_info(entry)
 
     async def async_select_option(self, option: str) -> None:
         self._phase_manager.set_global_override(_OPTION_TO_PHASE[option])
