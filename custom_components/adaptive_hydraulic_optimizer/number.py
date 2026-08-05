@@ -8,6 +8,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
 from .core.phase_manager import PhaseManager
+from .entity_base import ahpo_device_info
 
 
 async def async_setup_entry(
@@ -32,6 +33,7 @@ class AhpoConfidenceThresholdNumber(NumberEntity):
         self._phase_manager = phase_manager
         self._attr_unique_id = f"{entry.entry_id}_confidence_threshold"
         self._attr_native_value = phase_manager.confidence_threshold
+        self._attr_device_info = ahpo_device_info(entry)
 
     async def async_set_native_value(self, value: float) -> None:
         self._phase_manager.confidence_threshold = value

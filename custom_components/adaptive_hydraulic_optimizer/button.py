@@ -8,6 +8,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
 from .core.characteristic_map import CharacteristicMap
+from .entity_base import ahpo_device_info
 
 
 async def async_setup_entry(
@@ -31,6 +32,7 @@ class AhpoResetMapButton(ButtonEntity):
     def __init__(self, characteristic_map: CharacteristicMap, entry: ConfigEntry) -> None:
         self._characteristic_map = characteristic_map
         self._attr_unique_id = f"{entry.entry_id}_reset_map"
+        self._attr_device_info = ahpo_device_info(entry)
 
     async def async_press(self) -> None:
         self._characteristic_map.clear()
@@ -45,6 +47,7 @@ class AhpoResetConfidenceButton(ButtonEntity):
     def __init__(self, characteristic_map: CharacteristicMap, entry: ConfigEntry) -> None:
         self._characteristic_map = characteristic_map
         self._attr_unique_id = f"{entry.entry_id}_reset_confidence"
+        self._attr_device_info = ahpo_device_info(entry)
 
     async def async_press(self) -> None:
         for cell in self._characteristic_map.all_cells():

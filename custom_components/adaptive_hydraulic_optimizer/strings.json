@@ -11,7 +11,28 @@
           "electrical_power_total": "Total electrical power",
           "compressor_frequency": "Compressor frequency",
           "outdoor_temp": "Outdoor temperature",
-          "charge_pump_speed": "Charge pump speed (writable)",
+          "charge_pump_speed_input": "Charge pump speed — measured (read sensor)",
+          "charge_pump_speed_output": "Charge pump speed — setpoint (writable, optional)",
+          "operating_mode": "Operating mode (optional)",
+          "error_status": "Error status (optional)"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Edit entity mapping",
+        "description": "Update the entities mapped to each signal. Changes take effect after saving.",
+        "data": {
+          "primary_flow_temp": "Primary flow temperature",
+          "primary_return_temp": "Primary return temperature",
+          "primary_flow_rate": "Primary flow rate",
+          "electrical_power_total": "Total electrical power",
+          "compressor_frequency": "Compressor frequency",
+          "outdoor_temp": "Outdoor temperature",
+          "charge_pump_speed_input": "Charge pump speed — measured (read sensor)",
+          "charge_pump_speed_output": "Charge pump speed — setpoint (writable, optional)",
           "operating_mode": "Operating mode (optional)",
           "error_status": "Error status (optional)"
         }
@@ -20,15 +41,15 @@
   },
   "services": {
     "reset_characteristic_map": {
-      "name": "Reset characteristic map",
+      "name": "AHPO: Reset characteristic map",
       "description": "Clears all learned characteristic-map cells."
     },
     "reset_confidence": {
-      "name": "Reset confidence",
+      "name": "AHPO: Reset confidence",
       "description": "Resets the confidence score of every cell to zero (keeps the learned data)."
     },
     "set_phase_override": {
-      "name": "Set phase override",
+      "name": "AHPO: Set phase override",
       "description": "Force Phase A (passive) or Phase B (active) globally, or return to automatic per-cell confidence-based switching.",
       "fields": {
         "phase": {
@@ -38,7 +59,7 @@
       }
     },
     "export_characteristic_map": {
-      "name": "Export characteristic map",
+      "name": "AHPO: Export characteristic map",
       "description": "Writes the current characteristic map to a JSON file.",
       "fields": {
         "path": {
