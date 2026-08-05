@@ -48,8 +48,8 @@ def _operating_phase(coordinator: AhpoCoordinator) -> str | None:
     return result.phase.value if result else None
 
 
-def _active_cell_fraction(coordinator: AhpoCoordinator) -> float:
-    return round(coordinator.phase_manager.active_cell_fraction() * 100, 1)
+def _operating_mode(coordinator: AhpoCoordinator) -> str:
+    return coordinator.current_operating_mode
 
 
 SENSOR_DESCRIPTIONS: tuple[AhpoSensorDescription, ...] = (
@@ -69,11 +69,10 @@ SENSOR_DESCRIPTIONS: tuple[AhpoSensorDescription, ...] = (
         key="operating_phase", name="Operating phase", icon="mdi:state-machine", value_fn=_operating_phase
     ),
     AhpoSensorDescription(
-        key="active_cell_fraction",
-        name="Active cell fraction",
-        icon="mdi:chart-donut",
-        native_unit_of_measurement="%",
-        value_fn=_active_cell_fraction,
+        key="operating_mode",
+        name="Operating mode",
+        icon="mdi:thermostat",
+        value_fn=_operating_mode,
     ),
 )
 
@@ -81,15 +80,18 @@ SENSOR_DESCRIPTIONS: tuple[AhpoSensorDescription, ...] = (
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    coordinator: AhpoCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
-    characteristic_map: CharacteristicMap = hass.data[DOMAIN][entry.entry_id]["characteristic_map"]
-    phase_manager: PhaseManager = hass.data[DOMAIN][entry.entry_id]["phase_manager"]
+    data = hass.data[DOMAIN][entry.entry_id]
+    coordinator: AhpoCoordinator = data["coordinator"]
+    cool_map: CharacteristicMap = data["cool_map"]
+    heat_map: CharacteristicMap = data["heat_map"]
+    phase_manager: PhaseManager = data["phase_manager"]
 
     entities: list[SensorEntity] = [
         AhpoSensor(coordinator, entry, description) for description in SENSOR_DESCRIPTIONS
     ]
-    entities.append(AhpoTotalCellCountSensor(coordinator, characteristic_map, entry))
-    entities.append(AhpoPassiveCellCountSensor(coordinator, characteristic_map, phase_manager, entry))
+    entities.append(AhpoTotalCellCountSensor(coordinator, cool_map, heat_map, entry))
+    entities.append(AhpoPassiveCellCountSensor(coordinator, cool_map, heat_map, phase_manager, entry))
+    entities.append(AhpoActiveCellFractionSensor(coordinator, cool_map, heat_map, phase_manager, entry))
     async_add_entities(entities)
 
 
@@ -120,7 +122,7 @@ class AhpoSensor(SensorEntity):
 
 
 class AhpoTotalCellCountSensor(SensorEntity):
-    """Total number of learned characteristic-map cells."""
+    """Total number of learned characteristic-map cells across both cool and heat maps."""
 
     _attr_should_poll = False
     _attr_has_entity_name = True
@@ -131,17 +133,19 @@ class AhpoTotalCellCountSensor(SensorEntity):
     def __init__(
         self,
         coordinator: AhpoCoordinator,
-        characteristic_map: CharacteristicMap,
+        cool_map: CharacteristicMap,
+        heat_map: CharacteristicMap,
         entry: ConfigEntry,
     ) -> None:
         self._coordinator = coordinator
-        self._characteristic_map = characteristic_map
+        self._cool_map = cool_map
+        self._heat_map = heat_map
         self._attr_unique_id = f"{entry.entry_id}_total_cell_count"
         self._attr_device_info = ahpo_device_info(entry)
 
     @property
     def native_value(self) -> int:
-        return len(self._characteristic_map.all_cells())
+        return len(self._cool_map.all_cells()) + len(self._heat_map.all_cells())
 
     async def async_added_to_hass(self) -> None:
         self._coordinator.add_listener(self.async_write_ha_state)
@@ -162,20 +166,22 @@ class AhpoPassiveCellCountSensor(SensorEntity):
     def __init__(
         self,
         coordinator: AhpoCoordinator,
-        characteristic_map: CharacteristicMap,
+        cool_map: CharacteristicMap,
+        heat_map: CharacteristicMap,
         phase_manager: PhaseManager,
         entry: ConfigEntry,
     ) -> None:
         self._coordinator = coordinator
-        self._characteristic_map = characteristic_map
+        self._cool_map = cool_map
+        self._heat_map = heat_map
         self._phase_manager = phase_manager
         self._attr_unique_id = f"{entry.entry_id}_passive_cell_count"
         self._attr_device_info = ahpo_device_info(entry)
 
     @property
     def native_value(self) -> int:
-        cells = self._characteristic_map.all_cells()
-        return sum(1 for cell in cells if self._phase_manager.get_phase(cell) == Phase.PASSIVE)
+        all_cells = self._cool_map.all_cells() + self._heat_map.all_cells()
+        return sum(1 for cell in all_cells if self._phase_manager.get_phase(cell) == Phase.PASSIVE)
 
     async def async_added_to_hass(self) -> None:
         self._coordinator.add_listener(self.async_write_ha_state)
@@ -183,3 +189,41 @@ class AhpoPassiveCellCountSensor(SensorEntity):
     async def async_will_remove_from_hass(self) -> None:
         self._coordinator.remove_listener(self.async_write_ha_state)
 
+
+class AhpoActiveCellFractionSensor(SensorEntity):
+    """Percentage of characteristic-map cells currently in active (Phase B) mode across both maps."""
+
+    _attr_should_poll = False
+    _attr_has_entity_name = True
+    _attr_name = "Active cell fraction"
+    _attr_icon = "mdi:chart-donut"
+    _attr_native_unit_of_measurement = "%"
+
+    def __init__(
+        self,
+        coordinator: AhpoCoordinator,
+        cool_map: CharacteristicMap,
+        heat_map: CharacteristicMap,
+        phase_manager: PhaseManager,
+        entry: ConfigEntry,
+    ) -> None:
+        self._coordinator = coordinator
+        self._cool_map = cool_map
+        self._heat_map = heat_map
+        self._phase_manager = phase_manager
+        self._attr_unique_id = f"{entry.entry_id}_active_cell_fraction"
+        self._attr_device_info = ahpo_device_info(entry)
+
+    @property
+    def native_value(self) -> float:
+        all_cells = self._cool_map.all_cells() + self._heat_map.all_cells()
+        if not all_cells:
+            return 0.0
+        active = sum(1 for cell in all_cells if self._phase_manager.get_phase(cell) == Phase.ACTIVE)
+        return round(active / len(all_cells) * 100, 1)
+
+    async def async_added_to_hass(self) -> None:
+        self._coordinator.add_listener(self.async_write_ha_state)
+
+    async def async_will_remove_from_hass(self) -> None:
+        self._coordinator.remove_listener(self.async_write_ha_state)

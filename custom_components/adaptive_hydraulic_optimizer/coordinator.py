@@ -33,6 +33,19 @@ _LOGGER = logging.getLogger(__name__)
 
 TICK_INTERVAL = timedelta(seconds=5)
 
+# Operating mode strings that map to the "cool" characteristic map.  Everything
+# else (including None / unrecognised values) falls back to "heat".
+# "2" is included because some integrations (e.g. Modbus-based heat pumps) expose
+# the operating mode as a numeric code where 2 represents cooling mode.
+_COOL_MODE_STATES = frozenset({"cool", "cooling", "2"})
+
+
+def _resolve_operating_mode(raw_state: str | None) -> str:
+    """Normalise a raw operating-mode entity state to 'cool' or 'heat'."""
+    if raw_state is not None and raw_state.strip().lower() in _COOL_MODE_STATES:
+        return "cool"
+    return "heat"
+
 
 class AhpoCoordinator:
     """Ties together entity reads, the learning engine, and the Phase B pump-speed write."""
@@ -43,14 +56,24 @@ class AhpoCoordinator:
         entity_map: dict[str, str],
         learning_engine: LearningEngine,
         phase_manager: PhaseManager,
+        min_compressor_frequency: float = 20.0,
+        min_charge_pump_speed: float = 15.0,
+        settling_time_minutes: float | None = None,
+        averaging_time_minutes: float | None = None,
     ) -> None:
         self._hass = hass
         self._entity_map = entity_map
         self._learning_engine = learning_engine
         self.phase_manager = phase_manager
-        self._detector = SteadyPeriodDetector()
+        self._min_compressor_frequency = min_compressor_frequency
+        self._min_charge_pump_speed = min_charge_pump_speed
+        self._detector = SteadyPeriodDetector(
+            settling_minutes=settling_time_minutes,
+            averaging_minutes=averaging_time_minutes,
+        )
         self.last_result: LearningResult | None = None
         self.last_observation: Observation | None = None
+        self.current_operating_mode: str = "heat"
         self.pump_write_error = False
         self._unsubscribers: list[Any] = []
         self._listeners: list[Callable[[], None]] = []
@@ -91,9 +114,21 @@ class AhpoCoordinator:
         self._tick(now)
 
     def _tick(self, now: datetime) -> None:
-        row = self._read_entities()
+        row, operating_mode = self._read_entities()
         if row is None:
             self._detector.reset()  # sensor unavailable -> discard the in-progress period
+            return
+
+        # Update the publicly visible operating mode regardless of whether we
+        # produce an observation this tick.
+        self.current_operating_mode = operating_mode
+
+        # Ignore samples when the compressor is below its minimum operating frequency
+        # (e.g. standby / defrost).  The flow meter may not count reliably and the
+        # COP measurement would be meaningless.
+        compressor_freq = row[CONF_COMPRESSOR_FREQUENCY]
+        if compressor_freq < self._min_compressor_frequency:
+            self._detector.reset()
             return
 
         cop = calculate_cop_for_row(row)
@@ -110,10 +145,19 @@ class AhpoCoordinator:
         if observation is None:
             return
 
-        result = self._learning_engine.process(observation, error_status=self._read_error_status())
+        result = self._learning_engine.process(
+            observation,
+            error_status=self._read_error_status(),
+            operating_mode=operating_mode,
+        )
         self.last_result = result
         self.last_observation = observation
-        _LOGGER.debug("Learning cycle: phase=%s cell=%s", result.phase, result.cell)
+        _LOGGER.debug(
+            "Learning cycle: phase=%s cell=%s mode=%s",
+            result.phase,
+            result.cell,
+            operating_mode,
+        )
 
         if result.phase is Phase.ACTIVE and result.proposed_charge_pump_speed is not None:
             self._hass.async_create_task(
@@ -123,28 +167,37 @@ class AhpoCoordinator:
         for listener in self._listeners:
             listener()
 
-    def _read_entities(self) -> dict[str, float] | None:
-        """Read all mapped entities as floats; returns None if anything is unavailable."""
+    def _read_entities(self) -> tuple[dict[str, float] | None, str]:
+        """Read all mapped entities as floats; returns (None, mode) if anything is unavailable.
+
+        The operating mode is always returned (defaulting to 'heat') even when the
+        numeric entity reads fail, so callers can update the mode display independently.
+        """
+        # Determine operating mode first — it is a string entity, not a float.
+        operating_mode = self._read_operating_mode()
+
         row: dict[str, float] = {}
         for key in REQUIRED_ENTITY_KEYS:
             entity_id = self._entity_map.get(key)
             state = self._hass.states.get(entity_id) if entity_id else None
             if state is None or state.state in ("unknown", "unavailable"):
-                return None
+                return None, operating_mode
             try:
                 row[key] = float(state.state)
             except ValueError:
-                return None
+                return None, operating_mode
 
-        operating_mode_entity = self._entity_map.get(CONF_OPERATING_MODE)
-        if operating_mode_entity:
-            state = self._hass.states.get(operating_mode_entity)
-            if state is not None and state.state not in ("unknown", "unavailable"):
-                try:
-                    row["operating_mode"] = float(state.state)
-                except ValueError:
-                    pass
-        return row
+        return row, operating_mode
+
+    def _read_operating_mode(self) -> str:
+        """Read the operating mode entity as a raw string and normalise to 'cool'/'heat'."""
+        entity_id = self._entity_map.get(CONF_OPERATING_MODE)
+        if not entity_id:
+            return "heat"
+        state = self._hass.states.get(entity_id)
+        if state is None or state.state in ("unknown", "unavailable"):
+            return "heat"
+        return _resolve_operating_mode(state.state)
 
     def _read_error_status(self) -> bool:
         """Safety fallback input: mapped error-status entity 'on', or a failed pump write, forces Phase A."""
@@ -159,6 +212,9 @@ class AhpoCoordinator:
     async def _async_write_pump_speed(self, speed: float) -> None:
         """Write the proposed speed to the mapped pump output entity (Phase B only).
 
+        The speed is hard-clamped to the configured minimum before writing so the
+        flow meter always sees a reliable flow rate.
+
         If no output entity is configured (passive-only mode), the write is silently
         skipped.  Any failure (unsupported domain, service-call error) sets
         pump_write_error, which forces Phase A on the next cycle until a write succeeds.
@@ -172,12 +228,23 @@ class AhpoCoordinator:
             _LOGGER.error("Cannot write charge_pump_speed: unsupported entity domain %r", domain)
             self.pump_write_error = True
             return
+
+        # Hard clamp: never write below the minimum charge pump speed.
+        clamped_speed = max(speed, self._min_charge_pump_speed)
+        if clamped_speed != speed:
+            _LOGGER.debug(
+                "Charge pump speed clamped from %.1f%% to minimum %.1f%%",
+                speed,
+                clamped_speed,
+            )
+
         try:
             await self._hass.services.async_call(
-                domain, "set_value", {"entity_id": entity_id, "value": speed}, blocking=True
+                domain, "set_value", {"entity_id": entity_id, "value": clamped_speed}, blocking=True
             )
         except Exception:  # noqa: BLE001 - any failure must trigger the safety fallback, not crash
             _LOGGER.exception("Failed to write charge_pump_speed to %s", entity_id)
             self.pump_write_error = True
         else:
             self.pump_write_error = False
+

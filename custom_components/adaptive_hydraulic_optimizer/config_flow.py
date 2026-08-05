@@ -18,7 +18,18 @@ from .const import (
     CONF_PRIMARY_FLOW_RATE,
     CONF_PRIMARY_FLOW_TEMP,
     CONF_PRIMARY_RETURN_TEMP,
+    DEFAULT_OPTIONS,
     DOMAIN,
+    OPT_AVERAGING_TIME_MINUTES,
+    OPT_CHARGE_PUMP_STEP_PERCENT,
+    OPT_CHARGE_PUMP_STEP_PERCENT_COARSE,
+    OPT_CONFIDENCE_AGE_HALFLIFE_DAYS,
+    OPT_CONFIDENCE_MAX_COP_STD,
+    OPT_CONFIDENCE_MIN_SAMPLES,
+    OPT_CONFIDENCE_THRESHOLD,
+    OPT_MIN_CHARGE_PUMP_SPEED_PERCENT,
+    OPT_MIN_COMPRESSOR_FREQUENCY_HZ,
+    OPT_SETTLING_TIME_MINUTES,
 )
 
 _ENTITY_SELECTOR = selector.EntitySelector(
@@ -30,6 +41,12 @@ _WRITABLE_ENTITY_SELECTOR = selector.EntitySelector(
 _BINARY_ENTITY_SELECTOR = selector.EntitySelector(
     selector.EntitySelectorConfig(domain=["binary_sensor", "input_boolean"])
 )
+
+
+def _number_selector(min_val: float, max_val: float, step: float = 0.1) -> selector.NumberSelector:
+    return selector.NumberSelector(
+        selector.NumberSelectorConfig(min=min_val, max=max_val, step=step, mode="box")
+    )
 
 
 def _entity_mapping_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
@@ -57,6 +74,31 @@ def _entity_mapping_schema(defaults: dict[str, Any] | None = None) -> vol.Schema
     return vol.Schema(fields)
 
 
+def _settings_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
+    """Build the tunable-settings schema, pre-filled with current or default values."""
+    d = {**DEFAULT_OPTIONS, **(defaults or {})}
+
+    def _num(key: str, min_val: float, max_val: float, step: float = 0.1):
+        return (
+            vol.Required(key, default=d.get(key, DEFAULT_OPTIONS[key])),
+            _number_selector(min_val, max_val, step),
+        )
+
+    fields = dict([
+        _num(OPT_MIN_COMPRESSOR_FREQUENCY_HZ, 0.0, 100.0, 1.0),
+        _num(OPT_MIN_CHARGE_PUMP_SPEED_PERCENT, 0.0, 100.0, 1.0),
+        _num(OPT_CONFIDENCE_THRESHOLD, 0.0, 1.0, 0.05),
+        _num(OPT_CONFIDENCE_MIN_SAMPLES, 1.0, 100.0, 1.0),
+        _num(OPT_CONFIDENCE_MAX_COP_STD, 0.1, 10.0, 0.1),
+        _num(OPT_CONFIDENCE_AGE_HALFLIFE_DAYS, 1.0, 365.0, 1.0),
+        _num(OPT_SETTLING_TIME_MINUTES, 0.5, 60.0, 0.5),
+        _num(OPT_AVERAGING_TIME_MINUTES, 0.5, 60.0, 0.5),
+        _num(OPT_CHARGE_PUMP_STEP_PERCENT, 0.1, 20.0, 0.1),
+        _num(OPT_CHARGE_PUMP_STEP_PERCENT_COARSE, 1.0, 50.0, 1.0),
+    ])
+    return vol.Schema(fields)
+
+
 STEP_USER_SCHEMA = _entity_mapping_schema()
 
 
@@ -65,12 +107,30 @@ class AhpoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    def __init__(self) -> None:
+        self._entity_data: dict[str, Any] = {}
+
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
         """First step: let the user pick every mapped entity."""
         if user_input is not None:
-            return self.async_create_entry(title="Adaptive Hydraulic Pump Optimizer", data=user_input)
+            self._entity_data = user_input
+            return await self.async_step_settings()
 
         return self.async_show_form(step_id="user", data_schema=STEP_USER_SCHEMA)
+
+    async def async_step_settings(self, user_input: dict[str, Any] | None = None):
+        """Second step: configure all tunable algorithm parameters."""
+        if user_input is not None:
+            return self.async_create_entry(
+                title="Adaptive Hydraulic Pump Optimizer",
+                data=self._entity_data,
+                options=user_input,
+            )
+
+        return self.async_show_form(
+            step_id="settings",
+            data_schema=_settings_schema(),
+        )
 
     @staticmethod
     def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> "AhpoOptionsFlow":
@@ -79,20 +139,35 @@ class AhpoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class AhpoOptionsFlow(config_entries.OptionsFlow):
-    """Allow editing the entity mapping after initial setup."""
+    """Allow editing the entity mapping and algorithm settings after initial setup."""
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         self._config_entry = config_entry
+        self._entity_data: dict[str, Any] = {}
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
-        """Show the options form pre-filled with current values."""
-        # Merge data + options so existing choices appear as defaults
+        """Step 1: Show the entity-mapping form pre-filled with current values."""
         current = {**self._config_entry.data, **self._config_entry.options}
 
         if user_input is not None:
-            return self.async_create_entry(data=user_input)
+            self._entity_data = user_input
+            return await self.async_step_settings()
 
         return self.async_show_form(
             step_id="init",
             data_schema=_entity_mapping_schema(current),
         )
+
+    async def async_step_settings(self, user_input: dict[str, Any] | None = None):
+        """Step 2: Show the algorithm-settings form pre-filled with current options."""
+        current_opts = {**DEFAULT_OPTIONS, **self._config_entry.options}
+
+        if user_input is not None:
+            # Merge entity mapping back with the new settings into options only.
+            return self.async_create_entry(data={**self._entity_data, **user_input})
+
+        return self.async_show_form(
+            step_id="settings",
+            data_schema=_settings_schema(current_opts),
+        )
+
