@@ -171,7 +171,7 @@ class CharacteristicMap:
             n = int(record["n_measurements"])
             cop_std = float(record["cop_std"]) if record.get("cop_std") is not None else 0.0
             cop_m2 = (cop_std**2) * (n - 1) if n >= 2 else 0.0
-            cop_mean = float(record["cop_mean"])
+            cop_mean = float(record["cop_mean"]) if record.get("cop_mean") is not None else 0.0
             cop_weight_sum = record.get("cop_weight_sum")
             cop_weight_sum = (
                 float(cop_weight_sum) if cop_weight_sum is not None else cop_mean * n
@@ -183,7 +183,7 @@ class CharacteristicMap:
                 outdoor_temp_bin=float(record["outdoor_temp_bin"]),
                 compressor_freq_bin=float(record["compressor_freq_bin"]),
                 optimal_charge_pump_speed=float(optimal_speed) if optimal_speed is not None else None,
-                best_cop=float(record["best_cop"]),
+                best_cop=float(record["best_cop"]) if record.get("best_cop") is not None else -math.inf,
                 n_measurements=n,
                 cop_mean=cop_mean,
                 cop_m2=cop_m2,

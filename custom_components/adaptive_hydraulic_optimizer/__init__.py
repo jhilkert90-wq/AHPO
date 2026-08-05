@@ -46,9 +46,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator = AhpoCoordinator(hass, entity_map, learning_engine, phase_manager)
     coordinator.async_start()
 
-    unsubscribe_save = async_track_time_interval(
-        hass, lambda _now: hass.async_create_task(store.async_save(characteristic_map)), SAVE_INTERVAL
-    )
+    async def _async_save(_now) -> None:
+        await store.async_save(characteristic_map)
+
+    unsubscribe_save = async_track_time_interval(hass, _async_save, SAVE_INTERVAL)
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
         "characteristic_map": characteristic_map,
