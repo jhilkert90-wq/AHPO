@@ -79,6 +79,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         heat_map=heat_map,
         phase_manager=phase_manager,
         min_charge_pump_speed=float(opts[OPT_MIN_CHARGE_PUMP_SPEED_PERCENT]),
+        charge_pump_step_percent=float(opts[OPT_CHARGE_PUMP_STEP_PERCENT]),
+        charge_pump_step_percent_coarse=float(opts[OPT_CHARGE_PUMP_STEP_PERCENT_COARSE]),
     )
 
     coordinator = AhpoCoordinator(
@@ -88,6 +90,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         phase_manager,
         min_compressor_frequency=float(opts[OPT_MIN_COMPRESSOR_FREQUENCY_HZ]),
         min_charge_pump_speed=float(opts[OPT_MIN_CHARGE_PUMP_SPEED_PERCENT]),
+        settling_time_minutes=float(opts[OPT_SETTLING_TIME_MINUTES]),
+        averaging_time_minutes=float(opts[OPT_AVERAGING_TIME_MINUTES]),
     )
     coordinator.async_start()
 

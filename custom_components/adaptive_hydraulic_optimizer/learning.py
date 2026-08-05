@@ -32,11 +32,15 @@ class LearningEngine:
         heat_map: CharacteristicMap,
         phase_manager: PhaseManager,
         min_charge_pump_speed: float = 0.0,
+        charge_pump_step_percent: float | None = None,
+        charge_pump_step_percent_coarse: float | None = None,
     ) -> None:
         self._cool_map = cool_map
         self._heat_map = heat_map
         self._phase_manager = phase_manager
         self._min_charge_pump_speed = min_charge_pump_speed
+        self._charge_pump_step_percent = charge_pump_step_percent
+        self._charge_pump_step_percent_coarse = charge_pump_step_percent_coarse
         self._optimizers: dict[tuple[str, float, float], HillClimbingOptimizer] = {}
 
     @property
@@ -90,6 +94,8 @@ class LearningEngine:
                 key, HillClimbingOptimizer(
                     initial_speed=recorded_speed,
                     min_speed=self._min_charge_pump_speed,
+                    fine_step_size=self._charge_pump_step_percent,
+                    coarse_step_size=self._charge_pump_step_percent_coarse,
                 )
             )
             proposed_speed = optimizer.step(observation.cop)

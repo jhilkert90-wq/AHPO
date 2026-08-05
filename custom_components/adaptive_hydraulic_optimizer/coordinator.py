@@ -58,6 +58,8 @@ class AhpoCoordinator:
         phase_manager: PhaseManager,
         min_compressor_frequency: float = 20.0,
         min_charge_pump_speed: float = 15.0,
+        settling_time_minutes: float | None = None,
+        averaging_time_minutes: float | None = None,
     ) -> None:
         self._hass = hass
         self._entity_map = entity_map
@@ -65,7 +67,10 @@ class AhpoCoordinator:
         self.phase_manager = phase_manager
         self._min_compressor_frequency = min_compressor_frequency
         self._min_charge_pump_speed = min_charge_pump_speed
-        self._detector = SteadyPeriodDetector()
+        self._detector = SteadyPeriodDetector(
+            settling_minutes=settling_time_minutes,
+            averaging_minutes=averaging_time_minutes,
+        )
         self.last_result: LearningResult | None = None
         self.last_observation: Observation | None = None
         self.current_operating_mode: str = "heat"
