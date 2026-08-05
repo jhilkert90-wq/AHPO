@@ -26,7 +26,7 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
         "storage_path": storage_path,
         "characteristic_map": {
             "total_cell_count": len(cells),
-            "active_cell_fraction": round(phase_manager.active_cell_fraction() * 100, 1),
+            "active_cell_percentage": round(phase_manager.active_cell_fraction() * 100, 1),
             "cells": [cell.to_dict() for cell in cells],
         },
         "last_phase": coordinator.last_result.phase.value if coordinator.last_result else None,

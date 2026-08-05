@@ -35,40 +35,26 @@ _BINARY_ENTITY_SELECTOR = selector.EntitySelector(
 def _entity_mapping_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
     """Build the entity-mapping schema, optionally pre-filled with *defaults*."""
     d = defaults or {}
-    return vol.Schema(
-        {
-            vol.Required(CONF_PRIMARY_FLOW_TEMP, default=d[CONF_PRIMARY_FLOW_TEMP])
-            if CONF_PRIMARY_FLOW_TEMP in d
-            else vol.Required(CONF_PRIMARY_FLOW_TEMP): _ENTITY_SELECTOR,
-            vol.Required(CONF_PRIMARY_RETURN_TEMP, default=d[CONF_PRIMARY_RETURN_TEMP])
-            if CONF_PRIMARY_RETURN_TEMP in d
-            else vol.Required(CONF_PRIMARY_RETURN_TEMP): _ENTITY_SELECTOR,
-            vol.Required(CONF_PRIMARY_FLOW_RATE, default=d[CONF_PRIMARY_FLOW_RATE])
-            if CONF_PRIMARY_FLOW_RATE in d
-            else vol.Required(CONF_PRIMARY_FLOW_RATE): _ENTITY_SELECTOR,
-            vol.Required(CONF_ELECTRICAL_POWER_TOTAL, default=d[CONF_ELECTRICAL_POWER_TOTAL])
-            if CONF_ELECTRICAL_POWER_TOTAL in d
-            else vol.Required(CONF_ELECTRICAL_POWER_TOTAL): _ENTITY_SELECTOR,
-            vol.Required(CONF_COMPRESSOR_FREQUENCY, default=d[CONF_COMPRESSOR_FREQUENCY])
-            if CONF_COMPRESSOR_FREQUENCY in d
-            else vol.Required(CONF_COMPRESSOR_FREQUENCY): _ENTITY_SELECTOR,
-            vol.Required(CONF_OUTDOOR_TEMP, default=d[CONF_OUTDOOR_TEMP])
-            if CONF_OUTDOOR_TEMP in d
-            else vol.Required(CONF_OUTDOOR_TEMP): _ENTITY_SELECTOR,
-            vol.Required(CONF_CHARGE_PUMP_SPEED_INPUT, default=d[CONF_CHARGE_PUMP_SPEED_INPUT])
-            if CONF_CHARGE_PUMP_SPEED_INPUT in d
-            else vol.Required(CONF_CHARGE_PUMP_SPEED_INPUT): _ENTITY_SELECTOR,
-            vol.Optional(CONF_CHARGE_PUMP_SPEED_OUTPUT, default=d[CONF_CHARGE_PUMP_SPEED_OUTPUT])
-            if CONF_CHARGE_PUMP_SPEED_OUTPUT in d
-            else vol.Optional(CONF_CHARGE_PUMP_SPEED_OUTPUT): _WRITABLE_ENTITY_SELECTOR,
-            vol.Optional(CONF_OPERATING_MODE, default=d[CONF_OPERATING_MODE])
-            if CONF_OPERATING_MODE in d
-            else vol.Optional(CONF_OPERATING_MODE): _ENTITY_SELECTOR,
-            vol.Optional(CONF_ERROR_STATUS, default=d[CONF_ERROR_STATUS])
-            if CONF_ERROR_STATUS in d
-            else vol.Optional(CONF_ERROR_STATUS): _BINARY_ENTITY_SELECTOR,
-        }
-    )
+
+    def _req(key: str, selector_obj):
+        return vol.Required(key, default=d.get(key, vol.UNDEFINED)), selector_obj
+
+    def _opt(key: str, selector_obj):
+        return vol.Optional(key, default=d.get(key, vol.UNDEFINED)), selector_obj
+
+    fields = dict([
+        _req(CONF_PRIMARY_FLOW_TEMP, _ENTITY_SELECTOR),
+        _req(CONF_PRIMARY_RETURN_TEMP, _ENTITY_SELECTOR),
+        _req(CONF_PRIMARY_FLOW_RATE, _ENTITY_SELECTOR),
+        _req(CONF_ELECTRICAL_POWER_TOTAL, _ENTITY_SELECTOR),
+        _req(CONF_COMPRESSOR_FREQUENCY, _ENTITY_SELECTOR),
+        _req(CONF_OUTDOOR_TEMP, _ENTITY_SELECTOR),
+        _req(CONF_CHARGE_PUMP_SPEED_INPUT, _ENTITY_SELECTOR),
+        _opt(CONF_CHARGE_PUMP_SPEED_OUTPUT, _WRITABLE_ENTITY_SELECTOR),
+        _opt(CONF_OPERATING_MODE, _ENTITY_SELECTOR),
+        _opt(CONF_ERROR_STATUS, _BINARY_ENTITY_SELECTOR),
+    ])
+    return vol.Schema(fields)
 
 
 STEP_USER_SCHEMA = _entity_mapping_schema()
