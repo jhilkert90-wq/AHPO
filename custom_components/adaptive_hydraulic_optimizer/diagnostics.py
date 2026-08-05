@@ -19,7 +19,7 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
     entity_mapping = {**entry.data, **entry.options}
 
     cells = characteristic_map.all_cells()
-    storage_path = hass.config.path(f".storage/{STORAGE_KEY}_{entry.entry_id}")
+    storage_path = f".storage/{STORAGE_KEY}_{entry.entry_id}"
 
     return {
         "entity_mapping": entity_mapping,

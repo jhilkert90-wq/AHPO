@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.event import async_track_time_interval
 
-from .const import DOMAIN, PLATFORMS, REQUIRED_ENTITY_KEYS, STORAGE_KEY
+from .const import CONF_CHARGE_PUMP_SPEED, CONF_CHARGE_PUMP_SPEED_INPUT, DOMAIN, PLATFORMS, REQUIRED_ENTITY_KEYS, STORAGE_KEY
 from .coordinator import AhpoCoordinator
 from .core.characteristic_map import CharacteristicMap
 from .core.phase_manager import PhaseManager
@@ -27,13 +27,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Prefer options over original data so edits via the Options Flow take effect.
     entity_map = {**entry.data, **entry.options}
 
+    # Migrate legacy charge_pump_speed key to charge_pump_speed_input so existing
+    # config entries created before the input/output split continue to work.
+    if CONF_CHARGE_PUMP_SPEED in entity_map and CONF_CHARGE_PUMP_SPEED_INPUT not in entity_map:
+        entity_map[CONF_CHARGE_PUMP_SPEED_INPUT] = entity_map[CONF_CHARGE_PUMP_SPEED]
+
     _async_validate_entities(hass, entry, entity_map)
 
     characteristic_map = CharacteristicMap()
     store = CharacteristicMapStore(hass, entry.entry_id)
     await store.async_load(characteristic_map)
 
-    storage_path = hass.config.path(f".storage/{STORAGE_KEY}_{entry.entry_id}")
+    storage_path = f".storage/{STORAGE_KEY}_{entry.entry_id}"
     _LOGGER.info("AHPO characteristic map stored at: %s", storage_path)
 
     phase_manager = PhaseManager(characteristic_map)
