@@ -99,9 +99,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
         "cool_map": cool_map,
         "heat_map": heat_map,
-        # Legacy key still populated for backward-compat with diagnostics/sensor that
-        # haven't been migrated yet — points to the heat map by default.
-        "characteristic_map": heat_map,
         "phase_manager": phase_manager,
         "coordinator": coordinator,
         "store": store,

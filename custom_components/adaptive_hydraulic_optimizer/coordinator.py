@@ -35,6 +35,8 @@ TICK_INTERVAL = timedelta(seconds=5)
 
 # Operating mode strings that map to the "cool" characteristic map.  Everything
 # else (including None / unrecognised values) falls back to "heat".
+# "2" is included because some integrations (e.g. Modbus-based heat pumps) expose
+# the operating mode as a numeric code where 2 represents cooling mode.
 _COOL_MODE_STATES = frozenset({"cool", "cooling", "2"})
 
 
