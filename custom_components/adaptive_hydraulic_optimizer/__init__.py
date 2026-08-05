@@ -9,7 +9,25 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.event import async_track_time_interval
 
-from .const import CONF_CHARGE_PUMP_SPEED, CONF_CHARGE_PUMP_SPEED_INPUT, DOMAIN, PLATFORMS, REQUIRED_ENTITY_KEYS, STORAGE_KEY
+from .const import (
+    CONF_CHARGE_PUMP_SPEED,
+    CONF_CHARGE_PUMP_SPEED_INPUT,
+    DEFAULT_OPTIONS,
+    DOMAIN,
+    OPT_AVERAGING_TIME_MINUTES,
+    OPT_CHARGE_PUMP_STEP_PERCENT,
+    OPT_CHARGE_PUMP_STEP_PERCENT_COARSE,
+    OPT_CONFIDENCE_AGE_HALFLIFE_DAYS,
+    OPT_CONFIDENCE_MAX_COP_STD,
+    OPT_CONFIDENCE_MIN_SAMPLES,
+    OPT_CONFIDENCE_THRESHOLD,
+    OPT_MIN_CHARGE_PUMP_SPEED_PERCENT,
+    OPT_MIN_COMPRESSOR_FREQUENCY_HZ,
+    OPT_SETTLING_TIME_MINUTES,
+    PLATFORMS,
+    REQUIRED_ENTITY_KEYS,
+    STORAGE_KEY,
+)
 from .coordinator import AhpoCoordinator
 from .core.characteristic_map import CharacteristicMap
 from .core.phase_manager import PhaseManager
@@ -34,25 +52,56 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     _async_validate_entities(hass, entry, entity_map)
 
-    characteristic_map = CharacteristicMap()
+    # Resolve all tunable options, falling back to hardcoded defaults.
+    opts = {**DEFAULT_OPTIONS, **entry.options}
+
+    cool_map = CharacteristicMap()
+    heat_map = CharacteristicMap()
     store = CharacteristicMapStore(hass, entry.entry_id)
-    await store.async_load(characteristic_map)
+    await store.async_load(cool_map, heat_map)
 
     storage_path = f".storage/{STORAGE_KEY}_{entry.entry_id}"
     _LOGGER.info("AHPO characteristic map stored at: %s", storage_path)
 
-    phase_manager = PhaseManager(characteristic_map)
-    learning_engine = LearningEngine(characteristic_map, phase_manager)
-    coordinator = AhpoCoordinator(hass, entity_map, learning_engine, phase_manager)
+    phase_manager = PhaseManager(
+        # Pass a dummy map here; the actual per-mode maps are used inside LearningEngine.
+        # PhaseManager only needs the map for active_cell_fraction(); we pass the heat map
+        # as the "primary" map for that purpose (sensors read either map as needed).
+        heat_map,
+        confidence_threshold=float(opts[OPT_CONFIDENCE_THRESHOLD]),
+        min_samples=int(opts[OPT_CONFIDENCE_MIN_SAMPLES]),
+        max_cop_std=float(opts[OPT_CONFIDENCE_MAX_COP_STD]),
+        age_halflife_days=float(opts[OPT_CONFIDENCE_AGE_HALFLIFE_DAYS]),
+    )
+
+    learning_engine = LearningEngine(
+        cool_map=cool_map,
+        heat_map=heat_map,
+        phase_manager=phase_manager,
+        min_charge_pump_speed=float(opts[OPT_MIN_CHARGE_PUMP_SPEED_PERCENT]),
+    )
+
+    coordinator = AhpoCoordinator(
+        hass,
+        entity_map,
+        learning_engine,
+        phase_manager,
+        min_compressor_frequency=float(opts[OPT_MIN_COMPRESSOR_FREQUENCY_HZ]),
+        min_charge_pump_speed=float(opts[OPT_MIN_CHARGE_PUMP_SPEED_PERCENT]),
+    )
     coordinator.async_start()
 
     async def _async_save(_now) -> None:
-        await store.async_save(characteristic_map)
+        await store.async_save(cool_map, heat_map)
 
     unsubscribe_save = async_track_time_interval(hass, _async_save, SAVE_INTERVAL)
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
-        "characteristic_map": characteristic_map,
+        "cool_map": cool_map,
+        "heat_map": heat_map,
+        # Legacy key still populated for backward-compat with diagnostics/sensor that
+        # haven't been migrated yet — points to the heat map by default.
+        "characteristic_map": heat_map,
         "phase_manager": phase_manager,
         "coordinator": coordinator,
         "store": store,
@@ -94,10 +143,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     data = hass.data[DOMAIN].pop(entry.entry_id)
     data["coordinator"].async_stop()
     data["unsubscribe_save"]()
-    await data["store"].async_save(data["characteristic_map"])
+    await data["store"].async_save(data["cool_map"], data["heat_map"])
 
     if not hass.data[DOMAIN]:
         async_unregister_services(hass)
 
     return True
+
 

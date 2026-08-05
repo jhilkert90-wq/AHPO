@@ -40,11 +40,12 @@ def async_register_services(hass: HomeAssistant) -> None:
 
     async def _async_reset_map(call: ServiceCall) -> None:
         for entry_data in hass.data.get(DOMAIN, {}).values():
-            entry_data["characteristic_map"].clear()
+            entry_data["cool_map"].clear()
+            entry_data["heat_map"].clear()
 
     async def _async_reset_confidence(call: ServiceCall) -> None:
         for entry_data in hass.data.get(DOMAIN, {}).values():
-            for cell in entry_data["characteristic_map"].all_cells():
+            for cell in entry_data["cool_map"].all_cells() + entry_data["heat_map"].all_cells():
                 cell.confidence_score = 0.0
 
     async def _async_set_phase_override(call: ServiceCall) -> None:
@@ -55,11 +56,14 @@ def async_register_services(hass: HomeAssistant) -> None:
     async def _async_export_map(call: ServiceCall) -> None:
         path = call.data[ATTR_PATH]
         for entry_data in hass.data.get(DOMAIN, {}).values():
-            records = entry_data["characteristic_map"].to_dict()
+            export = {
+                "cool": entry_data["cool_map"].to_dict(),
+                "heat": entry_data["heat_map"].to_dict(),
+            }
 
-            def _write(records=records) -> None:
+            def _write(export=export) -> None:
                 with open(path, "w", encoding="utf-8") as handle:
-                    json.dump(records, handle, indent=2)
+                    json.dump(export, handle, indent=2)
 
             await hass.async_add_executor_job(_write)
 

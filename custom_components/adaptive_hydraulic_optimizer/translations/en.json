@@ -16,6 +16,22 @@
           "operating_mode": "Operating mode (optional)",
           "error_status": "Error status (optional)"
         }
+      },
+      "settings": {
+        "title": "Algorithm settings",
+        "description": "Configure the optimizer algorithm parameters. Defaults work for most installations.",
+        "data": {
+          "min_compressor_frequency_hz": "Minimum compressor frequency (Hz) — ignore samples below this",
+          "min_charge_pump_speed_percent": "Minimum charge pump speed (%) — clamp output and learning to this floor",
+          "confidence_threshold": "Confidence threshold to switch to active optimization (0–1)",
+          "confidence_min_samples": "Minimum samples required for confidence",
+          "confidence_max_cop_std": "Maximum COP standard deviation for full stability score",
+          "confidence_age_halflife_days": "Data age half-life (days)",
+          "settling_time_minutes": "Settling time after a setpoint change (minutes)",
+          "averaging_time_minutes": "Averaging window duration (minutes)",
+          "charge_pump_step_percent": "Fine optimizer step size (%)",
+          "charge_pump_step_percent_coarse": "Coarse optimizer step size (%)"
+        }
       }
     }
   },
@@ -35,6 +51,22 @@
           "charge_pump_speed_output": "Charge pump speed — setpoint (writable, optional)",
           "operating_mode": "Operating mode (optional)",
           "error_status": "Error status (optional)"
+        }
+      },
+      "settings": {
+        "title": "Algorithm settings",
+        "description": "Configure the optimizer algorithm parameters.",
+        "data": {
+          "min_compressor_frequency_hz": "Minimum compressor frequency (Hz) — ignore samples below this",
+          "min_charge_pump_speed_percent": "Minimum charge pump speed (%) — clamp output and learning to this floor",
+          "confidence_threshold": "Confidence threshold to switch to active optimization (0–1)",
+          "confidence_min_samples": "Minimum samples required for confidence",
+          "confidence_max_cop_std": "Maximum COP standard deviation for full stability score",
+          "confidence_age_halflife_days": "Data age half-life (days)",
+          "settling_time_minutes": "Settling time after a setpoint change (minutes)",
+          "averaging_time_minutes": "Averaging window duration (minutes)",
+          "charge_pump_step_percent": "Fine optimizer step size (%)",
+          "charge_pump_step_percent_coarse": "Coarse optimizer step size (%)"
         }
       }
     }
