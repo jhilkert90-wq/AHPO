@@ -44,7 +44,7 @@ OPT_MIN_COMPRESSOR_FREQUENCY_HZ = "min_compressor_frequency_hz"
 OPT_MIN_CHARGE_PUMP_SPEED_PERCENT = "min_charge_pump_speed_percent"
 OPT_DECISION_LOG_ENABLED = "decision_log_enabled"
 
-DEFAULT_OPTIONS: dict[str, float] = {
+DEFAULT_OPTIONS: dict[str, float | bool] = {
     OPT_CONFIDENCE_THRESHOLD: 0.7,
     OPT_CONFIDENCE_MIN_SAMPLES: 5,
     OPT_CONFIDENCE_MAX_COP_STD: 1.0,

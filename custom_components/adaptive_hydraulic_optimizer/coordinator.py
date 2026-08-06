@@ -165,29 +165,30 @@ class AhpoCoordinator:
 
         if result.phase is Phase.ACTIVE and result.proposed_charge_pump_speed is not None:
             proposed = result.proposed_charge_pump_speed
-            # Log the decision before writing if the logger is active.
-            if self._decision_logger is not None:
-                cell = result.cell
-                log_entry = build_decision_entry(
-                    timestamp=now,
-                    operating_mode=operating_mode,
-                    outdoor_temp_bin=cell.outdoor_temp_bin,
-                    compressor_freq_bin=cell.compressor_freq_bin,
-                    previous_speed=self._last_written_speed,
-                    proposed_speed=proposed,
-                    cop_at_current=observation.cop,
-                    best_cop=cell.best_cop,
-                    cop_mean=cell.cop_mean,
-                    n_measurements=cell.n_measurements,
-                    phase=result.phase.name,
-                    hill_climb_direction=result.hill_climb_direction,
-                    hill_climb_step_size=result.hill_climb_step_size,
-                    hill_climb_reversals=result.hill_climb_reversals,
-                    hill_climb_improved=result.hill_climb_improved,
-                )
-                self._hass.async_create_task(self._decision_logger.async_log(log_entry))
-            self._last_written_speed = proposed
-            self._hass.async_create_task(self._async_write_pump_speed(proposed))
+            if proposed != self._last_written_speed:
+                # Log the decision before writing if the logger is active.
+                if self._decision_logger is not None:
+                    cell = result.cell
+                    log_entry = build_decision_entry(
+                        timestamp=now,
+                        operating_mode=operating_mode,
+                        outdoor_temp_bin=cell.outdoor_temp_bin,
+                        compressor_freq_bin=cell.compressor_freq_bin,
+                        previous_speed=self._last_written_speed,
+                        proposed_speed=proposed,
+                        cop_at_current=observation.cop,
+                        best_cop=cell.best_cop,
+                        cop_mean=cell.cop_mean,
+                        n_measurements=cell.n_measurements,
+                        phase=result.phase.name,
+                        hill_climb_direction=result.hill_climb_direction,
+                        hill_climb_step_size=result.hill_climb_step_size,
+                        hill_climb_reversals=result.hill_climb_reversals,
+                        hill_climb_improved=result.hill_climb_improved,
+                    )
+                    self._hass.async_create_task(self._decision_logger.async_log(log_entry))
+                self._last_written_speed = proposed
+                self._hass.async_create_task(self._async_write_pump_speed(proposed))
 
         for listener in self._listeners:
             listener()

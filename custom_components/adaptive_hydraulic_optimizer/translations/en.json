@@ -30,7 +30,8 @@
           "settling_time_minutes": "Settling time after a setpoint change (minutes)",
           "averaging_time_minutes": "Averaging window duration (minutes)",
           "charge_pump_step_percent": "Fine optimizer step size (%)",
-          "charge_pump_step_percent_coarse": "Coarse optimizer step size (%)"
+          "charge_pump_step_percent_coarse": "Coarse optimizer step size (%)",
+          "decision_log_enabled": "Enable decision logging"
         }
       }
     }
@@ -66,7 +67,8 @@
           "settling_time_minutes": "Settling time after a setpoint change (minutes)",
           "averaging_time_minutes": "Averaging window duration (minutes)",
           "charge_pump_step_percent": "Fine optimizer step size (%)",
-          "charge_pump_step_percent_coarse": "Coarse optimizer step size (%)"
+          "charge_pump_step_percent_coarse": "Coarse optimizer step size (%)",
+          "decision_log_enabled": "Enable decision logging"
         }
       }
     }
