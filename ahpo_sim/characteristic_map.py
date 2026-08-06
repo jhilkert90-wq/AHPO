@@ -29,6 +29,7 @@ class CharacteristicMapCell:
     compressor_freq_bin: float
     optimal_charge_pump_speed: float | None = None
     best_cop: float = -math.inf
+    best_cop_speed: float | None = None  # pump speed that produced best_cop
     n_measurements: int = 0
     cop_mean: float = 0.0
     cop_m2: float = 0.0  # Welford accumulator for COP variance
@@ -76,6 +77,7 @@ class CharacteristicMapCell:
             )
         if cop > self.best_cop:
             self.best_cop = cop
+            self.best_cop_speed = charge_pump_speed
 
         self.last_updated = timestamp
         self.source = source
@@ -87,6 +89,7 @@ class CharacteristicMapCell:
             "compressor_freq_bin": self.compressor_freq_bin,
             "optimal_charge_pump_speed": self.optimal_charge_pump_speed,
             "best_cop": self.best_cop if math.isfinite(self.best_cop) else None,
+            "best_cop_speed": self.best_cop_speed,
             "n_measurements": self.n_measurements,
             "cop_mean": self.cop_mean,
             "cop_std": self.cop_std,
@@ -180,11 +183,13 @@ class CharacteristicMap:
             last_updated_raw = record.get("last_updated")
             last_updated = datetime.fromisoformat(last_updated_raw) if last_updated_raw else None
             optimal_speed = record.get("optimal_charge_pump_speed")
+            best_cop_speed_raw = record.get("best_cop_speed")
             cell = CharacteristicMapCell(
                 outdoor_temp_bin=float(record["outdoor_temp_bin"]),
                 compressor_freq_bin=float(record["compressor_freq_bin"]),
                 optimal_charge_pump_speed=float(optimal_speed) if optimal_speed is not None else None,
                 best_cop=float(record["best_cop"]),
+                best_cop_speed=float(best_cop_speed_raw) if best_cop_speed_raw is not None else None,
                 n_measurements=n,
                 cop_mean=cop_mean,
                 cop_m2=cop_m2,

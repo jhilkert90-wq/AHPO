@@ -21,6 +21,11 @@ class LearningResult:
     phase: Phase
     proposed_charge_pump_speed: float | None  # only set when phase is ACTIVE
     operating_mode: str  # "cool" or "heat"
+    # Hill-climber state snapshot (only populated when phase is ACTIVE)
+    hill_climb_direction: int = 0
+    hill_climb_step_size: float = 0.0
+    hill_climb_reversals: int = 0
+    hill_climb_improved: bool = False
 
 
 class LearningEngine:
@@ -83,6 +88,10 @@ class LearningEngine:
         )
 
         proposed_speed: float | None = None
+        hill_climb_direction: int = 0
+        hill_climb_step_size: float = 0.0
+        hill_climb_reversals: int = 0
+        hill_climb_improved: bool = False
         if phase is Phase.ACTIVE:
             key = (
                 operating_mode,
@@ -98,12 +107,27 @@ class LearningEngine:
                     coarse_step_size=self._charge_pump_step_percent_coarse,
                 )
             )
+            # Capture the state *before* the step so we can report whether COP improved.
+            prev_cop = optimizer.state.last_cop
+            hill_climb_improved = prev_cop is None or observation.cop > prev_cop
             proposed_speed = optimizer.step(observation.cop)
+            hill_climb_direction = optimizer.state.direction
+            hill_climb_step_size = optimizer.state.step_size
+            hill_climb_reversals = optimizer.state.reversals
             cell.source = "active"
+            # Pin the stored optimal speed to the empirically best speed so it always
+            # reflects the speed that achieved the highest COP, not the weighted mean
+            # of all explored speeds (which is pulled toward sub-optimal exploration points).
+            if cell.best_cop_speed is not None:
+                cell.optimal_charge_pump_speed = cell.best_cop_speed
 
         return LearningResult(
             cell=cell,
             phase=phase,
             proposed_charge_pump_speed=proposed_speed,
             operating_mode=operating_mode,
+            hill_climb_direction=hill_climb_direction,
+            hill_climb_step_size=hill_climb_step_size,
+            hill_climb_reversals=hill_climb_reversals,
+            hill_climb_improved=hill_climb_improved,
         )

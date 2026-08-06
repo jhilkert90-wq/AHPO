@@ -27,6 +27,7 @@ from .const import (
     OPT_CONFIDENCE_MAX_COP_STD,
     OPT_CONFIDENCE_MIN_SAMPLES,
     OPT_CONFIDENCE_THRESHOLD,
+    OPT_DECISION_LOG_ENABLED,
     OPT_MIN_CHARGE_PUMP_SPEED_PERCENT,
     OPT_MIN_COMPRESSOR_FREQUENCY_HZ,
     OPT_SETTLING_TIME_MINUTES,
@@ -95,6 +96,10 @@ def _settings_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
         _num(OPT_AVERAGING_TIME_MINUTES, 0.5, 60.0, 0.5),
         _num(OPT_CHARGE_PUMP_STEP_PERCENT, 0.1, 20.0, 0.1),
         _num(OPT_CHARGE_PUMP_STEP_PERCENT_COARSE, 1.0, 50.0, 1.0),
+        (
+            vol.Required(OPT_DECISION_LOG_ENABLED, default=bool(d.get(OPT_DECISION_LOG_ENABLED, False))),
+            selector.BooleanSelector(),
+        ),
     ])
     return vol.Schema(fields)
 

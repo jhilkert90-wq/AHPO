@@ -21,6 +21,7 @@ from .const import (
     OPT_CONFIDENCE_MAX_COP_STD,
     OPT_CONFIDENCE_MIN_SAMPLES,
     OPT_CONFIDENCE_THRESHOLD,
+    OPT_DECISION_LOG_ENABLED,
     OPT_MIN_CHARGE_PUMP_SPEED_PERCENT,
     OPT_MIN_COMPRESSOR_FREQUENCY_HZ,
     OPT_SETTLING_TIME_MINUTES,
@@ -31,6 +32,7 @@ from .const import (
 from .coordinator import AhpoCoordinator
 from .core.characteristic_map import CharacteristicMap
 from .core.phase_manager import PhaseManager
+from .decision_log import DecisionLogger
 from .learning import LearningEngine
 from .services import async_register_services, async_unregister_services
 from .storage import CharacteristicMapStore
@@ -63,6 +65,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     storage_path = f".storage/{STORAGE_KEY}_{entry.entry_id}"
     _LOGGER.info("AHPO characteristic map stored at: %s", storage_path)
 
+    # Optionally create the decision logger (enabled via config option).
+    decision_logger: DecisionLogger | None = None
+    if opts.get(OPT_DECISION_LOG_ENABLED):
+        decision_logger = DecisionLogger(hass, entry.entry_id)
+        _LOGGER.info(
+            "AHPO decision log enabled at: .storage/adaptive_hydraulic_optimizer_decisions_%s.jsonl",
+            entry.entry_id,
+        )
+
     phase_manager = PhaseManager(
         # Pass heat_map as the backing map for PhaseManager.active_cell_fraction().
         # Sensors and diagnostics compute the fraction across both maps directly,
@@ -93,6 +104,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         min_charge_pump_speed=float(opts[OPT_MIN_CHARGE_PUMP_SPEED_PERCENT]),
         settling_time_minutes=float(opts[OPT_SETTLING_TIME_MINUTES]),
         averaging_time_minutes=float(opts[OPT_AVERAGING_TIME_MINUTES]),
+        decision_logger=decision_logger,
     )
     coordinator.async_start()
 
