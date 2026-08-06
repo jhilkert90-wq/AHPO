@@ -105,12 +105,19 @@ def build_decision_entry(
 
     if previous_speed is None:
         reason = "First speed write for this session."
+    elif not hill_climb_improved and hill_climb_reversals == 0 and hill_climb_step_size > 0:
+        # First observation for this cell/optimizer — no prior COP to compare against.
+        direction_str = "up" if hill_climb_direction > 0 else "down"
+        reason = (
+            f"First observation for this cell; "
+            f"starting hill-climb {direction_str} with step {hill_climb_step_size:.1f}%."
+        )
     elif hill_climb_improved:
         direction_str = "up" if hill_climb_direction > 0 else "down"
         reason = (
             f"COP improved ({cop_at_current:.3f} > prev); "
             f"continuing {direction_str} by {hill_climb_step_size:.1f}% "
-            f"(step #{hill_climb_reversals} reversals so far)."
+            f"({hill_climb_reversals} reversals so far)."
         )
     else:
         direction_str = "up" if hill_climb_direction > 0 else "down"
@@ -118,7 +125,7 @@ def build_decision_entry(
             f"COP did not improve ({cop_at_current:.3f}); "
             f"reversed direction, halved step to {hill_climb_step_size:.1f}%, "
             f"now going {direction_str} "
-            f"(total reversals: {hill_climb_reversals})."
+            f"({hill_climb_reversals} reversals so far)."
         )
 
     return {

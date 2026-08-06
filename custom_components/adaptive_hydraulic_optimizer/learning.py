@@ -108,8 +108,11 @@ class LearningEngine:
                 )
             )
             # Capture the state *before* the step so we can report whether COP improved.
+            # prev_cop is None only on the very first observation for this cell/optimizer;
+            # treat that as a neutral initial state (not an improvement) so the reason
+            # string is accurate.
             prev_cop = optimizer.state.last_cop
-            hill_climb_improved = prev_cop is None or observation.cop > prev_cop
+            hill_climb_improved = prev_cop is not None and observation.cop > prev_cop
             proposed_speed = optimizer.step(observation.cop)
             hill_climb_direction = optimizer.state.direction
             hill_climb_step_size = optimizer.state.step_size
@@ -117,7 +120,9 @@ class LearningEngine:
             cell.source = "active"
             # Pin the stored optimal speed to the empirically best speed so it always
             # reflects the speed that achieved the highest COP, not the weighted mean
-            # of all explored speeds (which is pulled toward sub-optimal exploration points).
+            # of all explored speeds (which is pulled toward sub-optimal exploration
+            # points).  The Welford-mean computed inside cell.update() is intentionally
+            # discarded on every active cycle in favour of this empirical best.
             if cell.best_cop_speed is not None:
                 cell.optimal_charge_pump_speed = cell.best_cop_speed
 
