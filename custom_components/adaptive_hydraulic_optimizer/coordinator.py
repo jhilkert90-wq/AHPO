@@ -116,17 +116,17 @@ class AhpoCoordinator:
 
     def _tick(self, now: datetime) -> None:
         row, operating_mode = self._read_entities()
+        self.current_operating_mode = operating_mode
+
         if row is None:
             self._detector.reset()  # sensor unavailable -> discard the in-progress period
+            self._notify_listeners()
             return
-
-        # Update the publicly visible operating mode regardless of whether we
-        # produce an observation this tick.
-        self.current_operating_mode = operating_mode
 
         # Pause optimization ticks until an explicit "heat"/"cool" mode is provided.
         if operating_mode is None:
             self._detector.reset()
+            self._notify_listeners()
             return
 
         # Ignore samples when the compressor is below its minimum operating frequency
@@ -192,6 +192,9 @@ class AhpoCoordinator:
                 self._last_written_speed = proposed
                 self._hass.async_create_task(self._async_write_pump_speed(proposed))
 
+        self._notify_listeners()
+
+    def _notify_listeners(self) -> None:
         for listener in self._listeners:
             listener()
 

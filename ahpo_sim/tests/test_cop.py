@@ -88,6 +88,8 @@ def test_calculate_cop_missing_electrical_power() -> None:
         ("auto", None),
         (None, None),
         (math.nan, None),
+        (pd.NA, None),
+        (object(), None),
     ],
 )
 def test_resolve_mode(code, expected) -> None:

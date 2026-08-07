@@ -69,7 +69,11 @@ def resolve_mode(operating_mode_code: float | int | str | None) -> str | None:
         return mode if mode in (HEATING, COOLING) else None
     if _is_missing(operating_mode_code):
         return None
-    mode = OPERATING_MODE_CODES.get(int(operating_mode_code))
+    try:
+        mode_code = int(operating_mode_code)
+    except (TypeError, ValueError):
+        return None
+    mode = OPERATING_MODE_CODES.get(mode_code)
     return mode if mode in (HEATING, COOLING) else None
 
 
