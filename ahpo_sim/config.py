@@ -86,8 +86,8 @@ OPERATING_MODE_COOLING = 60
 OPERATING_MODE_CODES: dict[int, str] = {
     OPERATING_MODE_OFF: "off",
     OPERATING_MODE_DHW: "dhw",
-    OPERATING_MODE_HEATING: "heating",
-    OPERATING_MODE_COOLING: "cooling",
+    OPERATING_MODE_HEATING: "heat",
+    OPERATING_MODE_COOLING: "cool",
 }
 
 # --- Physics constants ---------------------------------------------------------

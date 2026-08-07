@@ -7,8 +7,8 @@ from collections.abc import Mapping
 
 _LOGGER = logging.getLogger(__name__)
 
-HEATING = "heating"
-COOLING = "cooling"
+HEATING = "heat"
+COOLING = "cool"
 
 HEAT_CAPACITY_FACTOR_WH_PER_L_K: float = 1.163  # water, Wh/(l*K)
 COP_MAX_PLAUSIBLE: float = 10.0  # cap for implausible spikes (sensor noise/transients)
@@ -21,8 +21,8 @@ OPERATING_MODE_COOLING = 60
 OPERATING_MODE_CODES: dict[int, str] = {
     OPERATING_MODE_OFF: "off",
     OPERATING_MODE_DHW: "dhw",
-    OPERATING_MODE_HEATING: "heating",
-    OPERATING_MODE_COOLING: "cooling",
+    OPERATING_MODE_HEATING: HEATING,
+    OPERATING_MODE_COOLING: COOLING,
 }
 
 
@@ -33,11 +33,9 @@ def _is_missing(value: float | None) -> bool:
 
 def calculate_delta_t(flow_temp: float, return_temp: float, mode: str = HEATING) -> float:
     """Return the primary-side temperature spread for the given operating mode."""
-    if mode == HEATING:
-        return flow_temp - return_temp
-    if mode == COOLING:
-        return return_temp - flow_temp
-    raise ValueError(f"Unknown mode: {mode!r} (expected {HEATING!r} or {COOLING!r})")
+    if mode not in (HEATING, COOLING):
+        raise ValueError(f"Unknown mode: {mode!r} (expected {HEATING!r} or {COOLING!r})")
+    return abs(flow_temp - return_temp)
 
 
 def calculate_thermal_power(flow_rate_l_min: float, delta_t_k: float) -> float:
@@ -62,15 +60,24 @@ def calculate_cop(thermal_power_w: float, electrical_power_w: float) -> float:
     return cop
 
 
-def resolve_mode(operating_mode_code: float | int | None) -> str | None:
-    """Map a raw operating-mode code to 'heating'/'cooling', else None."""
+def resolve_mode(operating_mode_code: float | int | str | None) -> str | None:
+    """Map a raw operating-mode value to 'heat'/'cool', else None."""
+    if operating_mode_code is None:
+        return None
+    if isinstance(operating_mode_code, str):
+        mode = operating_mode_code.strip().lower()
+        return mode if mode in (HEATING, COOLING) else None
     if _is_missing(operating_mode_code):
         return None
-    mode = OPERATING_MODE_CODES.get(int(operating_mode_code))
+    try:
+        mode_code = int(operating_mode_code)
+    except (TypeError, ValueError):
+        return None
+    mode = OPERATING_MODE_CODES.get(mode_code)
     return mode if mode in (HEATING, COOLING) else None
 
 
-def calculate_cop_for_row(row: Mapping[str, float], default_mode: str | None = HEATING) -> float:
+def calculate_cop_for_row(row: Mapping[str, float], default_mode: str | None = None) -> float:
     """Calculate COP for a single observation of logical signal values."""
     mode = resolve_mode(row.get("operating_mode")) or default_mode
     if mode not in (HEATING, COOLING):

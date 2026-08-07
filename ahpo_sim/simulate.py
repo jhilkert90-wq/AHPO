@@ -24,18 +24,25 @@ logger = logging.getLogger(__name__)
 REQUIRED_COLUMNS = ("outdoor_temp", "compressor_frequency", "charge_pump_speed", "cop")
 
 
-def add_cop_column(df: pd.DataFrame, default_mode: str | None = cop_module.HEATING) -> pd.DataFrame:
-    """Vectorized COP/thermal-power computation, added as new columns (batch/simulator only)."""
+def add_cop_column(df: pd.DataFrame, default_mode: str | None = None) -> pd.DataFrame:
+    """Vectorized COP/thermal-power computation, added as new columns (batch/simulator only).
+
+    COP is calculated only for rows whose resolved operating mode is 'heat' or 'cool'.
+    Any row with other mode values gets NaN COP and is skipped by downstream processing.
+    """
     result = df.copy()
 
+    resolved_default_mode = cop_module.resolve_mode(default_mode)
     if "operating_mode" in result.columns:
-        modes = result["operating_mode"].map(lambda code: cop_module.resolve_mode(code) or default_mode)
+        modes = result["operating_mode"].map(cop_module.resolve_mode)
+        if resolved_default_mode is not None:
+            modes = modes.fillna(resolved_default_mode)
     else:
-        modes = pd.Series(default_mode, index=result.index)
+        modes = pd.Series(resolved_default_mode, index=result.index)
 
-    is_cooling = modes == cop_module.COOLING
-    delta_t = result["primary_flow_temp"] - result["primary_return_temp"]
-    delta_t = delta_t.where(~is_cooling, -delta_t)
+    valid_modes = modes.isin((cop_module.HEATING, cop_module.COOLING))
+    delta_t = (result["primary_flow_temp"] - result["primary_return_temp"]).abs()
+    delta_t = delta_t.where(valid_modes, math.nan)
 
     flow_rate_l_h = result["primary_flow_rate"] * 60.0
     thermal_power_w = config.HEAT_CAPACITY_FACTOR_WH_PER_L_K * flow_rate_l_h * delta_t
@@ -43,6 +50,7 @@ def add_cop_column(df: pd.DataFrame, default_mode: str | None = cop_module.HEATI
     electrical_power_w = result["electrical_power_total"]
     cop = thermal_power_w / electrical_power_w
     cop = cop.where(electrical_power_w > 0, math.nan)
+    cop = cop.where(valid_modes, math.nan)
     cop = cop.clip(upper=config.COP_MAX_PLAUSIBLE)
 
     result["delta_t"] = delta_t
@@ -76,10 +84,13 @@ def run_simulation(
     settled steady period - see timing.build_stable_observations). Once a cell's
     confidence crosses the configured threshold, subsequent observations for
     that cell also drive a HillClimbingOptimizer trace (simulated Phase B).
+
+    Note: with strict mode gating, data without resolvable operating_mode values
+    ('heat'/'cool', or configured numeric codes) is ignored.
     """
     if df is None:
         df = influx_loader.load_data()
-    df = add_cop_column(df, default_mode=default_mode or cop_module.HEATING)
+    df = add_cop_column(df, default_mode=default_mode)
 
     valid = df.dropna(subset=list(REQUIRED_COLUMNS))
     valid = valid[valid["cop"] > 0]
@@ -244,5 +255,3 @@ if __name__ == "__main__":
             import matplotlib.pyplot as plt
 
             plt.show()
-
-
