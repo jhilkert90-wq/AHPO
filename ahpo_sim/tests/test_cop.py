@@ -17,6 +17,11 @@ def test_calculate_delta_t_cooling() -> None:
     assert cop.calculate_delta_t(12.0, 18.0, mode=cop.COOLING) == 6.0
 
 
+def test_calculate_delta_t_always_uses_magnitude() -> None:
+    assert cop.calculate_delta_t(18.0, 12.0, mode=cop.COOLING) == 6.0
+    assert cop.calculate_delta_t(12.0, 18.0, mode=cop.HEATING) == 6.0
+
+
 def test_calculate_delta_t_invalid_mode_raises() -> None:
     with pytest.raises(ValueError):
         cop.calculate_delta_t(35.0, 30.0, mode="unknown")
@@ -68,12 +73,12 @@ def test_calculate_cop_missing_electrical_power() -> None:
 @pytest.mark.parametrize(
     "code,expected",
     [
-        (30, cop.HEATING),
-        (30.0, cop.HEATING),
-        (60, cop.COOLING),
-        (10, None),
-        (20, None),
-        (999, None),
+        ("heat", cop.HEATING),
+        ("HEAT", cop.HEATING),
+        (" cool ", cop.COOLING),
+        ("cooling", None),
+        ("heating", None),
+        ("auto", None),
         (None, None),
         (math.nan, None),
     ],
@@ -89,7 +94,7 @@ def test_calculate_cop_for_row_heating() -> None:
             "primary_return_temp": 30.0,
             "primary_flow_rate": 10.0,
             "electrical_power_total": 500.0,
-            "operating_mode": 30.0,
+            "operating_mode": "heat",
         }
     )
     assert cop.calculate_cop_for_row(row) > 0
@@ -102,7 +107,7 @@ def test_calculate_cop_for_row_cooling() -> None:
             "primary_return_temp": 18.0,
             "primary_flow_rate": 10.0,
             "electrical_power_total": 500.0,
-            "operating_mode": 60.0,
+            "operating_mode": "cool",
         }
     )
     assert cop.calculate_cop_for_row(row) > 0
@@ -115,8 +120,7 @@ def test_calculate_cop_for_row_off_mode_returns_nan() -> None:
             "primary_return_temp": 30.0,
             "primary_flow_rate": 10.0,
             "electrical_power_total": 500.0,
-            "operating_mode": 10.0,
+            "operating_mode": "auto",
         }
     )
     assert math.isnan(cop.calculate_cop_for_row(row, default_mode=None))
-

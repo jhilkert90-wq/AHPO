@@ -17,7 +17,7 @@ def test_add_cop_column_dataframe() -> None:
             "primary_return_temp": [30.0, 18.0, 30.0],
             "primary_flow_rate": [10.0, 10.0, 0.0],
             "electrical_power_total": [500.0, 500.0, 0.0],
-            "operating_mode": [30.0, 60.0, 30.0],
+            "operating_mode": ["heat", "cool", "heat"],
         }
     )
     result = add_cop_column(df)
@@ -36,8 +36,23 @@ def test_add_cop_column_caps_extreme_cop() -> None:
             "primary_return_temp": [30.0],
             "primary_flow_rate": [10.0],
             "electrical_power_total": [1.0],
-            "operating_mode": [30.0],
+            "operating_mode": ["heat"],
         }
     )
     result = add_cop_column(df)
     assert result.loc[0, "cop"] == pytest.approx(config.COP_MAX_PLAUSIBLE)
+
+
+def test_add_cop_column_invalid_mode_row_is_skipped() -> None:
+    df = pd.DataFrame(
+        {
+            "primary_flow_temp": [35.0, 35.0],
+            "primary_return_temp": [30.0, 30.0],
+            "primary_flow_rate": [10.0, 10.0],
+            "electrical_power_total": [500.0, 500.0],
+            "operating_mode": ["heat", "auto"],
+        }
+    )
+    result = add_cop_column(df)
+    assert result.loc[0, "cop"] > 0
+    assert math.isnan(result.loc[1, "cop"])

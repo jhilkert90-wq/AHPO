@@ -45,7 +45,15 @@ the optimization core before wiring it into Home Assistant.
    - Primary flow temperature, primary return temperature, primary flow rate
    - Total electrical power, compressor frequency, outdoor temperature
    - Charge pump speed (must be a writable `number` or `input_number` entity)
-   - Optional: operating mode, error status
+   - Operating mode (`heat` or `cool` text state only), error status
+
+### Operating mode requirement
+
+- AHPO only calculates/optimizes when operating mode is exactly `heat` or `cool`.
+- Any other operating-mode state pauses calculation/optimization for that tick until
+  the mode returns to `heat` or `cool`.
+- COP uses the absolute primary temperature spread magnitude (`abs(VL-RL)`), so cooling
+  COP ranking remains correct and never flips due to sign convention.
 
 ## Entities provided
 

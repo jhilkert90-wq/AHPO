@@ -34,18 +34,15 @@ _LOGGER = logging.getLogger(__name__)
 
 TICK_INTERVAL = timedelta(seconds=5)
 
-# Operating mode strings that map to the "cool" characteristic map.  Everything
-# else (including None / unrecognised values) falls back to "heat".
-# "2" is included because some integrations (e.g. Modbus-based heat pumps) expose
-# the operating mode as a numeric code where 2 represents cooling mode.
-_COOL_MODE_STATES = frozenset({"cool", "cooling", "2"})
+_VALID_MODE_STATES = frozenset({"heat", "cool"})
 
 
-def _resolve_operating_mode(raw_state: str | None) -> str:
-    """Normalise a raw operating-mode entity state to 'cool' or 'heat'."""
-    if raw_state is not None and raw_state.strip().lower() in _COOL_MODE_STATES:
-        return "cool"
-    return "heat"
+def _resolve_operating_mode(raw_state: str | None) -> str | None:
+    """Normalise a raw operating-mode entity state to 'heat'/'cool', else None."""
+    if raw_state is None:
+        return None
+    mode = raw_state.strip().lower()
+    return mode if mode in _VALID_MODE_STATES else None
 
 
 class AhpoCoordinator:
@@ -77,7 +74,7 @@ class AhpoCoordinator:
         self._last_written_speed: float | None = None
         self.last_result: LearningResult | None = None
         self.last_observation: Observation | None = None
-        self.current_operating_mode: str = "heat"
+        self.current_operating_mode: str = "paused"
         self.pump_write_error = False
         self._unsubscribers: list[Any] = []
         self._listeners: list[Callable[[], None]] = []
@@ -125,7 +122,12 @@ class AhpoCoordinator:
 
         # Update the publicly visible operating mode regardless of whether we
         # produce an observation this tick.
-        self.current_operating_mode = operating_mode
+        self.current_operating_mode = operating_mode or "paused"
+
+        # Pause optimization ticks until an explicit "heat"/"cool" mode is provided.
+        if operating_mode is None:
+            self._detector.reset()
+            return
 
         # Ignore samples when the compressor is below its minimum operating frequency
         # (e.g. standby / defrost).  The flow meter may not count reliably and the
@@ -135,7 +137,7 @@ class AhpoCoordinator:
             self._detector.reset()
             return
 
-        cop = calculate_cop_for_row(row)
+        cop = calculate_cop_for_row(row, default_mode=operating_mode)
         if math.isnan(cop):
             return
 
@@ -193,11 +195,11 @@ class AhpoCoordinator:
         for listener in self._listeners:
             listener()
 
-    def _read_entities(self) -> tuple[dict[str, float] | None, str]:
+    def _read_entities(self) -> tuple[dict[str, float] | None, str | None]:
         """Read all mapped entities as floats; returns (None, mode) if anything is unavailable.
 
-        The operating mode is always returned (defaulting to 'heat') even when the
-        numeric entity reads fail, so callers can update the mode display independently.
+        The operating mode is always returned (possibly None) even when the numeric
+        entity reads fail, so callers can update the mode display independently.
         """
         # Determine operating mode first — it is a string entity, not a float.
         operating_mode = self._read_operating_mode()
@@ -215,14 +217,14 @@ class AhpoCoordinator:
 
         return row, operating_mode
 
-    def _read_operating_mode(self) -> str:
-        """Read the operating mode entity as a raw string and normalise to 'cool'/'heat'."""
+    def _read_operating_mode(self) -> str | None:
+        """Read the operating mode entity as a raw string and normalise to 'heat'/'cool'."""
         entity_id = self._entity_map.get(CONF_OPERATING_MODE)
         if not entity_id:
-            return "heat"
+            return None
         state = self._hass.states.get(entity_id)
         if state is None or state.state in ("unknown", "unavailable"):
-            return "heat"
+            return None
         return _resolve_operating_mode(state.state)
 
     def _read_error_status(self) -> bool:
@@ -273,4 +275,3 @@ class AhpoCoordinator:
             self.pump_write_error = True
         else:
             self.pump_write_error = False
-
