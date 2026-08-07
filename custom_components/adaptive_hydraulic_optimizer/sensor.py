@@ -48,7 +48,7 @@ def _operating_phase(coordinator: AhpoCoordinator) -> str | None:
     return result.phase.value if result else None
 
 
-def _operating_mode(coordinator: AhpoCoordinator) -> str:
+def _operating_mode(coordinator: AhpoCoordinator) -> str | None:
     return coordinator.current_operating_mode
 
 

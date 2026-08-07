@@ -86,6 +86,9 @@ python -m ahpo_sim.simulate --export-map ahpo_sim/output/characteristic_map.csv
 See `ahpo_sim/config.py` for all tunable parameters (column mapping, settling/averaging
 timing, confidence thresholds, optimizer step sizes).
 
+For simulation data, operating mode must resolve to `heat` or `cool` (or supported
+numeric mode codes mapped in `ahpo_sim/config.py`); rows with other mode values are skipped.
+
 ## Development
 
 ```powershell

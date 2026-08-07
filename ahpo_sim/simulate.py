@@ -25,7 +25,11 @@ REQUIRED_COLUMNS = ("outdoor_temp", "compressor_frequency", "charge_pump_speed",
 
 
 def add_cop_column(df: pd.DataFrame, default_mode: str | None = None) -> pd.DataFrame:
-    """Vectorized COP/thermal-power computation, added as new columns (batch/simulator only)."""
+    """Vectorized COP/thermal-power computation, added as new columns (batch/simulator only).
+
+    COP is calculated only for rows whose resolved operating mode is 'heat' or 'cool'.
+    Any row with other mode values gets NaN COP and is skipped by downstream processing.
+    """
     result = df.copy()
 
     resolved_default_mode = cop_module.resolve_mode(default_mode)
@@ -46,6 +50,7 @@ def add_cop_column(df: pd.DataFrame, default_mode: str | None = None) -> pd.Data
     electrical_power_w = result["electrical_power_total"]
     cop = thermal_power_w / electrical_power_w
     cop = cop.where(electrical_power_w > 0, math.nan)
+    cop = cop.where(valid_modes, math.nan)
     cop = cop.clip(upper=config.COP_MAX_PLAUSIBLE)
 
     result["delta_t"] = delta_t
@@ -79,6 +84,9 @@ def run_simulation(
     settled steady period - see timing.build_stable_observations). Once a cell's
     confidence crosses the configured threshold, subsequent observations for
     that cell also drive a HillClimbingOptimizer trace (simulated Phase B).
+
+    Note: with strict mode gating, data without resolvable operating_mode values
+    ('heat'/'cool', or configured numeric codes) is ignored.
     """
     if df is None:
         df = influx_loader.load_data()
@@ -247,4 +255,3 @@ if __name__ == "__main__":
             import matplotlib.pyplot as plt
 
             plt.show()
-

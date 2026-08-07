@@ -74,7 +74,7 @@ class AhpoCoordinator:
         self._last_written_speed: float | None = None
         self.last_result: LearningResult | None = None
         self.last_observation: Observation | None = None
-        self.current_operating_mode: str = "paused"
+        self.current_operating_mode: str | None = None
         self.pump_write_error = False
         self._unsubscribers: list[Any] = []
         self._listeners: list[Callable[[], None]] = []
@@ -122,7 +122,7 @@ class AhpoCoordinator:
 
         # Update the publicly visible operating mode regardless of whether we
         # produce an observation this tick.
-        self.current_operating_mode = operating_mode or "paused"
+        self.current_operating_mode = operating_mode
 
         # Pause optimization ticks until an explicit "heat"/"cool" mode is provided.
         if operating_mode is None:
