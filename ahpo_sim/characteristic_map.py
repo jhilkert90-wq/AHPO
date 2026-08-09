@@ -23,61 +23,66 @@ def _is_missing(value: float | None) -> bool:
 
 @dataclass
 class CharacteristicMapCell:
-    """One grid cell: gliding estimate of the optimal charge-pump speed and its COP."""
+    """One grid cell: gliding estimate of the optimal charge-pump speed and its spread error."""
 
     outdoor_temp_bin: float
     compressor_freq_bin: float
     optimal_charge_pump_speed: float | None = None
-    best_cop: float = -math.inf
-    best_cop_speed: float | None = None  # pump speed that produced best_cop
+    best_abs_spread_error: float = math.inf  # smallest |e| seen; lower is better
+    best_spread_error_speed: float | None = None  # pump speed that produced best_abs_spread_error
     n_measurements: int = 0
-    cop_mean: float = 0.0
-    cop_m2: float = 0.0  # Welford accumulator for COP variance
-    cop_weight_sum: float = 0.0  # cumulative COP weight backing optimal_charge_pump_speed
+    spread_error_mean: float = 0.0
+    spread_error_m2: float = 0.0  # Welford accumulator for spread-error variance
+    spread_error_std: float = 0.0  # kept up-to-date after each record()
+    spread_error_weight_sum: float = 0.0  # cumulative weight backing optimal_charge_pump_speed
+    cop_mean_logged: float = 0.0  # unweighted arithmetic mean of COP — informational only
+    n_cop_measurements: int = 0  # number of observations that carried a valid COP value
     last_updated: datetime | None = None
     source: str = "passive"  # "passive" (Phase A) or "active" (Phase B)
     confidence_score: float = 0.0
 
-    @property
-    def cop_std(self) -> float:
-        if self.n_measurements < 2:
-            return 0.0
-        return math.sqrt(self.cop_m2 / (self.n_measurements - 1))
-
     def record(
         self,
         charge_pump_speed: float,
-        cop: float,
+        spread_error: float,
+        cop: float = math.nan,
         timestamp: datetime | None = None,
         source: str = "passive",
     ) -> None:
-        """Blend in one new (pump speed, COP) observation. Never overwrites outright."""
+        """Blend in one new (pump speed, spread_error) observation. Never overwrites outright."""
         self.n_measurements += 1
 
-        # Welford's online mean/variance update for COP spread.
-        delta = cop - self.cop_mean
-        self.cop_mean += delta / self.n_measurements
-        delta2 = cop - self.cop_mean
-        self.cop_m2 += delta * delta2
+        # Welford's online mean/variance update for spread-error.
+        delta = spread_error - self.spread_error_mean
+        self.spread_error_mean += delta / self.n_measurements
+        delta2 = spread_error - self.spread_error_mean
+        self.spread_error_m2 += delta * delta2
+        if self.n_measurements >= 2:
+            self.spread_error_std = math.sqrt(self.spread_error_m2 / (self.n_measurements - 1))
+        else:
+            self.spread_error_std = 0.0
 
-        # Gliding, COP-weighted update of the optimal speed: observations with a
-        # higher COP magnitude pull the estimate more strongly, and the step size
-        # shrinks automatically as more (weight-carrying) observations accumulate.
-        # abs(cop) is used as the weight so cooling (negative COP) is handled
-        # correctly — a higher (less negative) COP still wins via the best_cop
-        # comparison below.
-        weight_value = abs(cop) if cop != 0 else 1e-6
-        self.cop_weight_sum += weight_value
+        # Gliding, precision-weighted update of the optimal speed: observations with a
+        # smaller |e| (closer to zero error) pull the estimate more strongly.
+        weight_value = 1.0 / (abs(spread_error) + 1e-3)
+        self.spread_error_weight_sum += weight_value
         if self.optimal_charge_pump_speed is None:
             self.optimal_charge_pump_speed = charge_pump_speed
         else:
-            weight = weight_value / self.cop_weight_sum
+            weight = weight_value / self.spread_error_weight_sum
             self.optimal_charge_pump_speed += weight * (
                 charge_pump_speed - self.optimal_charge_pump_speed
             )
-        if cop > self.best_cop:
-            self.best_cop = cop
-            self.best_cop_speed = charge_pump_speed
+        if abs(spread_error) < self.best_abs_spread_error:
+            self.best_abs_spread_error = abs(spread_error)
+            self.best_spread_error_speed = charge_pump_speed
+
+        # Informational COP running mean (unweighted, no influence on optimization).
+        # Uses its own counter so NaN observations don't bias the average.
+        if not (cop is None or (isinstance(cop, float) and math.isnan(cop))):
+            self.n_cop_measurements += 1
+            cop_delta = cop - self.cop_mean_logged
+            self.cop_mean_logged += cop_delta / self.n_cop_measurements
 
         self.last_updated = timestamp
         self.source = source
@@ -88,12 +93,14 @@ class CharacteristicMapCell:
             "outdoor_temp_bin": self.outdoor_temp_bin,
             "compressor_freq_bin": self.compressor_freq_bin,
             "optimal_charge_pump_speed": self.optimal_charge_pump_speed,
-            "best_cop": self.best_cop if math.isfinite(self.best_cop) else None,
-            "best_cop_speed": self.best_cop_speed,
+            "best_abs_spread_error": self.best_abs_spread_error if math.isfinite(self.best_abs_spread_error) else None,
+            "best_spread_error_speed": self.best_spread_error_speed,
             "n_measurements": self.n_measurements,
-            "cop_mean": self.cop_mean,
-            "cop_std": self.cop_std,
-            "cop_weight_sum": self.cop_weight_sum,
+            "spread_error_mean": self.spread_error_mean,
+            "spread_error_std": self.spread_error_std,
+            "spread_error_weight_sum": self.spread_error_weight_sum,
+            "cop_mean_logged": self.cop_mean_logged,
+            "n_cop_measurements": self.n_cop_measurements,
             "confidence_score": self.confidence_score,
             "last_updated": self.last_updated.isoformat() if self.last_updated else None,
             "source": self.source,
@@ -149,15 +156,16 @@ class CharacteristicMap:
         outdoor_temp: float,
         compressor_frequency: float,
         charge_pump_speed: float,
-        cop: float,
+        spread_error: float,
+        cop: float = math.nan,
         timestamp: datetime | None = None,
         source: str = "passive",
     ) -> CharacteristicMapCell:
         """Record one observation (Phase A or Phase B) into its map cell."""
-        if any(_is_missing(v) for v in (outdoor_temp, compressor_frequency, charge_pump_speed, cop)):
+        if any(_is_missing(v) for v in (outdoor_temp, compressor_frequency, charge_pump_speed, spread_error)):
             raise ValueError("CharacteristicMap.update() received a missing input; filter rows first.")
         cell = self.get_cell(outdoor_temp, compressor_frequency, create=True)
-        cell.record(charge_pump_speed, cop, timestamp=timestamp, source=source)
+        cell.record(charge_pump_speed, spread_error, cop=cop, timestamp=timestamp, source=source)
         return cell
 
     def all_cells(self) -> list[CharacteristicMapCell]:
@@ -168,32 +176,38 @@ class CharacteristicMap:
         return [cell.to_dict() for cell in self._cells.values()]
 
     def from_dict(self, records: list[dict], replace: bool = True) -> None:
-        """Reconstruct cells from to_dict() records; cop_m2 is recovered exactly from cop_std."""
+        """Reconstruct cells from to_dict() records; spread_error_m2 is recovered from spread_error_std."""
         if replace:
             self._cells = {}
         for record in records:
             n = int(record["n_measurements"])
-            cop_std = float(record["cop_std"]) if record.get("cop_std") is not None else 0.0
-            cop_m2 = (cop_std**2) * (n - 1) if n >= 2 else 0.0
-            cop_mean = float(record["cop_mean"])
-            cop_weight_sum = record.get("cop_weight_sum")
-            cop_weight_sum = (
-                float(cop_weight_sum) if cop_weight_sum is not None else abs(cop_mean) * n
-            )  # approx fallback for records without this field
+            spread_error_std = float(record["spread_error_std"]) if record.get("spread_error_std") is not None else 0.0
+            spread_error_m2 = (spread_error_std**2) * (n - 1) if n >= 2 else 0.0
+            spread_error_mean = float(record.get("spread_error_mean") or 0.0)
+            spread_error_weight_sum = record.get("spread_error_weight_sum")
+            spread_error_weight_sum = (
+                float(spread_error_weight_sum) if spread_error_weight_sum is not None
+                else 1.0 / (abs(spread_error_mean) + 1e-3) * n  # approx fallback
+            )
+            best_abs_raw = record.get("best_abs_spread_error")
+            best_abs_spread_error = float(best_abs_raw) if best_abs_raw is not None else math.inf
+            best_spread_error_speed_raw = record.get("best_spread_error_speed")
             last_updated_raw = record.get("last_updated")
             last_updated = datetime.fromisoformat(last_updated_raw) if last_updated_raw else None
             optimal_speed = record.get("optimal_charge_pump_speed")
-            best_cop_speed_raw = record.get("best_cop_speed")
             cell = CharacteristicMapCell(
                 outdoor_temp_bin=float(record["outdoor_temp_bin"]),
                 compressor_freq_bin=float(record["compressor_freq_bin"]),
                 optimal_charge_pump_speed=float(optimal_speed) if optimal_speed is not None else None,
-                best_cop=float(record["best_cop"]),
-                best_cop_speed=float(best_cop_speed_raw) if best_cop_speed_raw is not None else None,
+                best_abs_spread_error=best_abs_spread_error,
+                best_spread_error_speed=float(best_spread_error_speed_raw) if best_spread_error_speed_raw is not None else None,
                 n_measurements=n,
-                cop_mean=cop_mean,
-                cop_m2=cop_m2,
-                cop_weight_sum=cop_weight_sum,
+                spread_error_mean=spread_error_mean,
+                spread_error_m2=spread_error_m2,
+                spread_error_std=spread_error_std,
+                spread_error_weight_sum=spread_error_weight_sum,
+                cop_mean_logged=float(record.get("cop_mean_logged") or 0.0),
+                n_cop_measurements=int(record.get("n_cop_measurements") or 0),
                 last_updated=last_updated,
                 source=str(record["source"]),
                 confidence_score=float(record["confidence_score"]),
@@ -223,7 +237,7 @@ class CharacteristicMap:
         self.from_dict(df.where(pd.notna(df), None).to_dict(orient="records"), replace=replace)
 
 
-def characteristic_map_heatmap(characteristic_map: CharacteristicMap, value: str = "best_cop") -> pd.DataFrame:
+def characteristic_map_heatmap(characteristic_map: CharacteristicMap, value: str = "best_abs_spread_error") -> pd.DataFrame:
     """Pivot the map cells into an outdoor_temp x compressor_freq heatmap table."""
     records = [
         {

@@ -28,7 +28,12 @@ def _current_cop(coordinator: AhpoCoordinator) -> float | None:
 
 def _averaged_cop(coordinator: AhpoCoordinator) -> float | None:
     result = coordinator.last_result
-    return round(result.cell.cop_mean, 2) if result else None
+    return round(result.cell.cop_mean_logged, 2) if result else None
+
+
+def _current_spread_error(coordinator: AhpoCoordinator) -> float | None:
+    observation = coordinator.last_observation
+    return round(observation.spread_error, 3) if observation else None
 
 
 def _optimal_charge_pump_speed(coordinator: AhpoCoordinator) -> float | None:
@@ -53,8 +58,15 @@ def _operating_mode(coordinator: AhpoCoordinator) -> str | None:
 
 
 SENSOR_DESCRIPTIONS: tuple[AhpoSensorDescription, ...] = (
-    AhpoSensorDescription(key="current_cop", name="Current COP", icon="mdi:heat-pump", value_fn=_current_cop),
-    AhpoSensorDescription(key="averaged_cop", name="Averaged COP", icon="mdi:heat-pump", value_fn=_averaged_cop),
+    AhpoSensorDescription(
+        key="current_spread_error",
+        name="Regelabweichung (Spread error)",
+        icon="mdi:delta",
+        native_unit_of_measurement="K",
+        value_fn=_current_spread_error,
+    ),
+    AhpoSensorDescription(key="current_cop", name="Current COP (log)", icon="mdi:heat-pump", value_fn=_current_cop),
+    AhpoSensorDescription(key="averaged_cop", name="Averaged COP (log)", icon="mdi:heat-pump", value_fn=_averaged_cop),
     AhpoSensorDescription(
         key="optimal_charge_pump_speed",
         name="Optimal charge pump speed",

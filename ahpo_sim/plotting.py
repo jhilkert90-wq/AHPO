@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 
 def plot_cop_series(cop_series: pd.Series, rolling_window: int = 100, ax: Axes | None = None) -> Axes:
-    """Raw COP samples plus a rolling mean to show the overall trend."""
+    """Raw COP samples plus a rolling mean — logged, not optimized."""
     if ax is None:
         _, ax = plt.subplots()
     ax.plot(cop_series.index, cop_series.values, ".", markersize=1, alpha=0.3, label="COP (raw)")
@@ -26,15 +26,32 @@ def plot_cop_series(cop_series: pd.Series, rolling_window: int = 100, ax: Axes |
         window = min(rolling_window, len(cop_series))
         rolling = cop_series.rolling(window, min_periods=1).mean()
         ax.plot(rolling.index, rolling.values, linewidth=1.5, label=f"COP (rolling mean, n={window})")
-    ax.set_title("COP over time")
+    ax.set_title("COP (logged, not optimized)")
     ax.set_xlabel("Time")
     ax.set_ylabel("COP")
     ax.legend(loc="upper right", fontsize="small")
     return ax
 
 
+def plot_spread_error_series(spread_error_series: pd.Series, rolling_window: int = 100, ax: Axes | None = None) -> Axes:
+    """Signed spread-error (primary ΔT − secondary ΔT) over time — the primary optimization signal."""
+    if ax is None:
+        _, ax = plt.subplots()
+    ax.axhline(0.0, color="black", linewidth=0.8, linestyle="--", label="e = 0 (target)")
+    ax.plot(spread_error_series.index, spread_error_series.values, ".", markersize=1, alpha=0.3, label="e (raw)")
+    if len(spread_error_series) >= 2:
+        window = min(rolling_window, len(spread_error_series))
+        rolling = spread_error_series.rolling(window, min_periods=1).mean()
+        ax.plot(rolling.index, rolling.values, linewidth=1.5, label=f"e (rolling mean, n={window})")
+    ax.set_title("Spread error e = ΔT_primary − ΔT_secondary (optimized)")
+    ax.set_xlabel("Time")
+    ax.set_ylabel("Spread error [K]")
+    ax.legend(loc="upper right", fontsize="small")
+    return ax
+
+
 def plot_characteristic_map_heatmap(
-    characteristic_map: CharacteristicMap, value: str = "best_cop", ax: Axes | None = None
+    characteristic_map: CharacteristicMap, value: str = "best_abs_spread_error", ax: Axes | None = None
 ) -> Axes:
     """Outdoor-temp x compressor-frequency heatmap of the requested characteristic-map metric."""
     if ax is None:
@@ -83,7 +100,7 @@ def plot_optimizer_convergence(
     ax: Axes | None = None,
     max_cells: int = 8,
 ) -> Axes:
-    """COP per hill-climbing step for the most active characteristic-map cells (convergence check)."""
+    """|spread_error| per hill-climbing step for the most active characteristic-map cells."""
     if ax is None:
         _, ax = plt.subplots()
     traces_by_length = sorted(optimizer_traces.items(), key=lambda item: len(item[1]), reverse=True)
@@ -91,32 +108,34 @@ def plot_optimizer_convergence(
         ax.set_title("Optimizer convergence - no active cells")
         return ax
 
+    ax.axhline(0.0, color="black", linewidth=0.8, linestyle="--", label="|e| = 0 (target)")
     for (outdoor_temp_bin, compressor_freq_bin), history in traces_by_length[:max_cells]:
-        cop_values = [cop for _, cop in history]
+        abs_errors = [abs(e) for _, e in history]
         ax.plot(
-            range(1, len(cop_values) + 1),
-            cop_values,
+            range(1, len(abs_errors) + 1),
+            abs_errors,
             marker="o",
             markersize=3,
             label=f"AT={outdoor_temp_bin:g}°C, Hz={compressor_freq_bin:g}",
         )
-    ax.set_title("Optimizer convergence (COP per hill-climbing step)")
+    ax.set_title("Optimizer convergence (|spread error| per hill-climbing step)")
     ax.set_xlabel("Step")
-    ax.set_ylabel("COP")
+    ax.set_ylabel("|e| [K]")
     ax.legend(fontsize="x-small", loc="best")
     return ax
 
 
 def plot_simulation_summary(result: "SimulationResult", save_path: str | Path | None = None) -> Figure:
-    """2x3 overview figure: COP trace, characteristic-map heatmaps (COP + optimal speed),
-    Phase-B rollout, and optimizer convergence."""
+    """2x3 overview figure: spread-error trace (primary), COP trace (logged), characteristic-map
+    heatmaps (best |e| + optimal speed), Phase-B rollout, and optimizer convergence."""
     fig, axes = plt.subplots(2, 3, figsize=(20, 10))
-    plot_cop_series(result.cop_series, ax=axes[0, 0])
-    plot_characteristic_map_heatmap(result.characteristic_map, ax=axes[0, 1])
+    plot_spread_error_series(result.spread_error_series, ax=axes[0, 0])
+    plot_cop_series(result.cop_series, ax=axes[0, 1])
     plot_optimal_speed_heatmap(result.characteristic_map, ax=axes[0, 2])
     plot_active_cell_fraction(result.active_cell_fraction_over_time, ax=axes[1, 0])
     plot_optimizer_convergence(result.optimizer_traces, ax=axes[1, 1])
-    axes[1, 2].axis("off")
+    plot_characteristic_map_heatmap(result.characteristic_map, value="best_abs_spread_error", ax=axes[1, 2])
+    axes[1, 2].set_title("Characteristic map: best |spread error| [K]")
     fig.tight_layout()
     if save_path is not None:
         fig.savefig(save_path, dpi=150)

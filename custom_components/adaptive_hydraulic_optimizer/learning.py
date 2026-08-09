@@ -78,7 +78,8 @@ class LearningEngine:
             observation.outdoor_temp,
             observation.compressor_frequency,
             recorded_speed,
-            observation.cop,
+            observation.spread_error,
+            cop=observation.cop,
             timestamp=observation.timestamp,
             source="passive",
         )
@@ -107,24 +108,23 @@ class LearningEngine:
                     coarse_step_size=self._charge_pump_step_percent_coarse,
                 )
             )
-            # Capture the state *before* the step so we can report whether COP improved.
-            # prev_cop is None only on the very first observation for this cell/optimizer;
-            # treat that as a neutral initial state (not an improvement) so the reason
-            # string is accurate.
-            prev_cop = optimizer.state.last_cop
-            hill_climb_improved = prev_cop is not None and observation.cop > prev_cop
-            proposed_speed = optimizer.step(observation.cop)
+            # Capture the state *before* the step so we can report whether |spread_error| improved.
+            # prev_abs is None only on the very first observation for this cell/optimizer;
+            # treat that as a neutral initial state so the reason string is accurate.
+            prev_abs = optimizer.state.last_abs_spread_error
+            hill_climb_improved = (
+                prev_abs is not None and abs(observation.spread_error) < prev_abs
+            )
+            proposed_speed = optimizer.step(observation.spread_error)
             hill_climb_direction = optimizer.state.direction
             hill_climb_step_size = optimizer.state.step_size
             hill_climb_reversals = optimizer.state.reversals
             cell.source = "active"
-            # Pin the stored optimal speed to the empirically best speed so it always
-            # reflects the speed that achieved the highest COP, not the weighted mean
-            # of all explored speeds (which is pulled toward sub-optimal exploration
-            # points).  The Welford-mean computed inside cell.update() is intentionally
-            # discarded on every active cycle in favour of this empirical best.
-            if cell.best_cop_speed is not None:
-                cell.optimal_charge_pump_speed = cell.best_cop_speed
+            # Pin the stored optimal speed to the empirically best-error speed so it always
+            # reflects the speed that achieved the smallest |e|, not the weighted mean
+            # of all explored speeds.
+            if cell.best_spread_error_speed is not None:
+                cell.optimal_charge_pump_speed = cell.best_spread_error_speed
 
         return LearningResult(
             cell=cell,

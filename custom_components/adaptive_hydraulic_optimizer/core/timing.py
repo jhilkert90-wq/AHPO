@@ -26,6 +26,7 @@ class Observation:
     compressor_frequency: float
     charge_pump_speed: float
     cop: float
+    spread_error: float = 0.0
 
 
 class SteadyPeriodDetector:
@@ -51,7 +52,7 @@ class SteadyPeriodDetector:
             frequency_tolerance_hz or COMPRESSOR_FREQUENCY_STABILITY_TOLERANCE_HZ
         )
         self._last_sample: tuple[datetime, float, float] | None = None  # timestamp, speed, frequency
-        self._window: list[tuple[datetime, float, float, float, float]] = []
+        self._window: list[tuple[datetime, float, float, float, float, float]] = []
         self._window_start: datetime | None = None
         self._settled = False
 
@@ -69,6 +70,7 @@ class SteadyPeriodDetector:
         compressor_frequency: float,
         charge_pump_speed: float,
         cop: float,
+        spread_error: float = 0.0,
     ) -> Observation | None:
         """Feed one sample; returns a completed Observation once settled+averaged, else None."""
         if self._last_sample is not None:
@@ -94,7 +96,7 @@ class SteadyPeriodDetector:
             self._window_start = timestamp
             self._window = []
 
-        self._window.append((timestamp, outdoor_temp, compressor_frequency, charge_pump_speed, cop))
+        self._window.append((timestamp, outdoor_temp, compressor_frequency, charge_pump_speed, cop, spread_error))
 
         if (timestamp - self._window_start) < self._averaging:
             return None
@@ -106,6 +108,7 @@ class SteadyPeriodDetector:
             compressor_frequency=sum(sample[2] for sample in self._window) / count,
             charge_pump_speed=sum(sample[3] for sample in self._window) / count,
             cop=sum(sample[4] for sample in self._window) / count,
+            spread_error=sum(sample[5] for sample in self._window) / count,
         )
         self._window_start = timestamp
         self._window = []

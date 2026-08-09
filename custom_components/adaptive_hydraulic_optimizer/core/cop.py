@@ -85,3 +85,37 @@ def calculate_cop_for_row(row: Mapping[str, float], default_mode: str | None = N
     delta_t = calculate_delta_t(row["primary_flow_temp"], row["primary_return_temp"], mode)
     thermal_power = calculate_thermal_power(row["primary_flow_rate"], delta_t)
     return calculate_cop(thermal_power, row["electrical_power_total"])
+
+
+def calculate_secondary_delta_t(flow_temp: float, return_temp: float, mode: str = HEATING) -> float:
+    """Return the secondary-side temperature spread (buffer/separator secondary loop)."""
+    if mode not in (HEATING, COOLING):
+        raise ValueError(f"Unknown mode: {mode!r} (expected {HEATING!r} or {COOLING!r})")
+    return abs(flow_temp - return_temp)
+
+
+def calculate_spread_error(primary_delta_t: float, secondary_delta_t: float) -> float:
+    """Signed spread error e = ΔT_primary − ΔT_secondary.
+
+    e > 0: pump too slow (primary spreads more than secondary → mixing loss).
+    e < 0: pump too fast (secondary spreads more → unnecessary circulation).
+    e ≈ 0: hydraulic separator is balanced.
+    """
+    return primary_delta_t - secondary_delta_t
+
+
+def calculate_spread_error_for_row(row: Mapping[str, float], default_mode: str | None = None) -> float:
+    """Calculate signed spread error for a single observation row.
+
+    Requires keys: primary_flow_temp, primary_return_temp, secondary_flow_temp,
+    secondary_return_temp (and optionally operating_mode).
+    Returns NaN if operating mode cannot be resolved.
+    """
+    mode = resolve_mode(row.get("operating_mode")) or default_mode
+    if mode not in (HEATING, COOLING):
+        return math.nan
+    primary_dt = calculate_delta_t(row["primary_flow_temp"], row["primary_return_temp"], mode)
+    secondary_dt = calculate_secondary_delta_t(
+        row["secondary_flow_temp"], row["secondary_return_temp"], mode
+    )
+    return calculate_spread_error(primary_dt, secondary_dt)

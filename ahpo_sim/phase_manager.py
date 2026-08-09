@@ -1,8 +1,8 @@
 """Phase-A (passive/shadow) vs. Phase-B (active) logic per characteristic-map cell.
 
-Confidence formula (TODO, per task spec - refine once validated against real data):
+Confidence formula:
     confidence = min(1, n_measurements / CONFIDENCE_MIN_SAMPLES)
-                 * 1 / (1 + cop_std / CONFIDENCE_MAX_COP_STD)
+                 * 1 / (1 + spread_error_std / CONFIDENCE_MAX_SPREAD_ERROR_STD)
                  * 0.5 ** (age_days / CONFIDENCE_AGE_HALFLIFE_DAYS)
 A cell moves from Phase A to Phase B once confidence >= CONFIDENCE_THRESHOLD. The age
 factor only applies when a reference_time is passed in; it defaults to no decay.
@@ -29,25 +29,25 @@ class PhaseManager:
         characteristic_map: CharacteristicMap,
         confidence_threshold: float | None = None,
         min_samples: int | None = None,
-        max_cop_std: float | None = None,
+        max_spread_error_std: float | None = None,
         global_override: Phase | None = None,
         age_halflife_days: float | None = None,
     ) -> None:
         self._characteristic_map = characteristic_map
         self._confidence_threshold = confidence_threshold or config.CONFIDENCE_THRESHOLD
         self._min_samples = min_samples or config.CONFIDENCE_MIN_SAMPLES
-        self._max_cop_std = max_cop_std or config.CONFIDENCE_MAX_COP_STD
+        self._max_spread_error_std = max_spread_error_std or config.CONFIDENCE_MAX_SPREAD_ERROR_STD
         self._global_override = global_override
         self._age_halflife_days = age_halflife_days or config.CONFIDENCE_AGE_HALFLIFE_DAYS
 
     def calculate_confidence(
         self, cell: CharacteristicMapCell, reference_time: datetime | None = None
     ) -> float:
-        """Confidence in [0, 1] from sample count, COP spread and data age (if reference_time given)."""
+        """Confidence in [0, 1] from sample count, spread-error std and data age (if reference_time given)."""
         if cell.n_measurements <= 0:
             return 0.0
         sample_component = min(1.0, cell.n_measurements / self._min_samples)
-        stability_component = 1.0 / (1.0 + cell.cop_std / self._max_cop_std)
+        stability_component = 1.0 / (1.0 + cell.spread_error_std / self._max_spread_error_std)
         age_factor = 1.0
         if reference_time is not None and cell.last_updated is not None:
             age_days = max(0.0, (reference_time - cell.last_updated).total_seconds() / 86400.0)

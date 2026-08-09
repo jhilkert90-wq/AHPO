@@ -1,13 +1,15 @@
 # Adaptive Hydraulic Pump Optimizer (AHPO)
 
 A Home Assistant integration that learns the optimal charge-pump speed for hydraulically
-decoupled heating/cooling systems (buffer tank / hydraulic separator) by continuously
-maximizing system COP/EER - not by controlling temperatures or spreads.
+decoupled heating/cooling systems (buffer tank / hydraulic separator) by minimizing the
+**spread error** `e = ΔT_primary − ΔT_secondary` across the hydraulic separator.
 
-Not a PID controller. Not a temperature/spread controller. It builds a characteristic
-map (outdoor temperature x compressor frequency -> optimal pump speed) from observed
-behavior, then fine-tunes it online with hill climbing once enough confidence has been
-built up for a given operating point.
+Not a PID controller. Not a temperature controller. It builds a characteristic map
+(outdoor temperature × compressor frequency → optimal pump speed) from observed behavior,
+then fine-tunes it online with hill climbing once enough confidence has been built up for a
+given operating point. COP/EER is computed and logged as a byproduct — it is no longer the
+optimization target (COP is confounded by compressor frequency and absolute temperature level,
+variables the charge pump cannot control).
 
 ## Status
 
@@ -19,7 +21,7 @@ the optimization core before wiring it into Home Assistant.
 ## Two parts of this repository
 
 - **`ahpo_sim/`** - standalone Python simulator (no Home Assistant dependency) that
-  replays historical InfluxDB/CSV export data to validate the COP calculation,
+  replays historical InfluxDB/CSV export data to validate the spread-error calculation,
   characteristic map, Phase A/B transition logic, and the hill-climbing optimizer.
   See "Running the simulator" below.
 - **`custom_components/adaptive_hydraulic_optimizer/`** - the actual Home Assistant
@@ -42,7 +44,8 @@ the optimization core before wiring it into Home Assistant.
 2. Install "Adaptive Hydraulic Pump Optimizer" and restart Home Assistant.
 3. Go to **Settings -> Devices & Services -> Add Integration** and search for it.
 4. In the config flow, map each required signal to an existing entity:
-   - Primary flow temperature, primary return temperature, primary flow rate
+   - Primary flow/return temperature, primary flow rate
+   - **Secondary flow/return temperature** (buffer/separator secondary side — required for spread-error calculation)
    - Total electrical power, compressor frequency, outdoor temperature
    - Charge pump speed (must be a writable `number` or `input_number` entity)
    - Operating mode (`heat` or `cool` text state only), error status
@@ -52,12 +55,16 @@ the optimization core before wiring it into Home Assistant.
 - AHPO only calculates/optimizes when operating mode is exactly `heat` or `cool`.
 - Any other operating-mode state pauses calculation/optimization for that tick until
   the mode returns to `heat` or `cool`.
-- COP uses the absolute primary temperature spread magnitude (`abs(VL-RL)`), so cooling
-  COP ranking remains correct and never flips due to sign convention.
+- The spread error `e = ΔT_primary − ΔT_secondary` is signed: `e > 0` means the pump
+  is too slow (primary spreads more than secondary → mixing loss); `e < 0` means too fast.
+  The optimizer drives `e` toward zero. COP/EER is computed using `abs(VL-RL)` and logged
+  per cell as an informational byproduct — it no longer influences the optimization target,
+  confidence formula, or map weighting.
 
 ## Entities provided
 
-- **Sensors**: current COP, averaged COP, optimal charge pump speed, confidence score,
+- **Sensors**: spread error (`e = ΔT_primary − ΔT_secondary`, the optimization target),
+  current COP (log), averaged COP (log), optimal charge pump speed, confidence score,
   operating phase, active-cell fraction
 - **Select**: Phase override (automatic / passive / active)
 - **Number**: confidence threshold (Phase A -> B)
