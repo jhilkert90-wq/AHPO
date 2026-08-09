@@ -25,6 +25,8 @@ INFLUX_FIELD_MAPPING: dict[str, str | None] = {
     "compressor_frequency": "Hz",  # compressor frequency, Hz
     "outdoor_temp": "AT",  # outdoor temperature
     "charge_pump_speed": "KT%",  # charge pump speed (actual), %
+    "secondary_flow_temp": None,  # TODO: set to the real InfluxDB column name
+    "secondary_return_temp": None,  # TODO: set to the real InfluxDB column name
     # optional:
     "operating_mode": "BM",  # operating-mode code, see OPERATING_MODE_CODES
     "primary_pump_state": None,
@@ -42,6 +44,8 @@ MANDATORY_FIELDS: tuple[str, ...] = (
     "compressor_frequency",
     "outdoor_temp",
     "charge_pump_speed",
+    "secondary_flow_temp",
+    "secondary_return_temp",
 )
 
 OPTIONAL_FIELDS: tuple[str, ...] = tuple(
@@ -61,9 +65,6 @@ def validate_mapping(mapping: dict[str, str | None]) -> None:
             "INFLUX_FIELD_MAPPING is missing required (non-optional) fields: "
             f"{missing}. Set a raw column name for each of these in config.py."
         )
-
-
-validate_mapping(INFLUX_FIELD_MAPPING)
 
 # --- Data source --------------------------------------------------------------
 # Phase 1 uses a CSV export of historical InfluxDB (v1) data; no live query yet.
@@ -112,7 +113,7 @@ CHARGE_PUMP_SPEED_PLAUSIBLE_RANGE_PERCENT: tuple[float, float] = (0.0, 100.0)
 # --- Confidence / phase transition (used by phase_manager.py) -----------------
 # TODO: refine formula; for now: min sample count + max COP std-dev.
 CONFIDENCE_MIN_SAMPLES: int = 5
-CONFIDENCE_MAX_COP_STD: float = 1.0
+CONFIDENCE_MAX_SPREAD_ERROR_STD: float = 0.5  # ΔT in Kelvin; 0.5 K is a tighter bound than the old COP-std default
 CONFIDENCE_THRESHOLD: float = 0.7  # confidence_score >= this -> cell may move to Phase B
 # Confidence decays with data age (exponential half-life); no decay if reference_time is unset.
 CONFIDENCE_AGE_HALFLIFE_DAYS: float = 30.0

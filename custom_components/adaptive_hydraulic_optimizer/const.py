@@ -14,6 +14,8 @@ CONF_OUTDOOR_TEMP = "outdoor_temp"
 CONF_CHARGE_PUMP_SPEED = "charge_pump_speed"  # legacy key — kept for migration only
 CONF_CHARGE_PUMP_SPEED_INPUT = "charge_pump_speed_input"   # read-only: measured speed sensor
 CONF_CHARGE_PUMP_SPEED_OUTPUT = "charge_pump_speed_output"  # writable: setpoint entity (optional)
+CONF_SECONDARY_FLOW_TEMP = "secondary_flow_temp"
+CONF_SECONDARY_RETURN_TEMP = "secondary_return_temp"
 
 REQUIRED_ENTITY_KEYS = (
     CONF_PRIMARY_FLOW_TEMP,
@@ -23,6 +25,8 @@ REQUIRED_ENTITY_KEYS = (
     CONF_COMPRESSOR_FREQUENCY,
     CONF_OUTDOOR_TEMP,
     CONF_CHARGE_PUMP_SPEED_INPUT,
+    CONF_SECONDARY_FLOW_TEMP,
+    CONF_SECONDARY_RETURN_TEMP,
 )
 
 # --- Config entry keys: optional entity mapping ---
