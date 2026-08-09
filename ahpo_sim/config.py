@@ -127,8 +127,9 @@ CONFIDENCE_THRESHOLD: float = 0.7  # confidence_score >= this -> cell may move t
 CONFIDENCE_AGE_HALFLIFE_DAYS: float = 30.0
 
 # --- Optimizer (used by optimizer.py) ------------------------------------------
-CHARGE_PUMP_STEP_PERCENT: float = 1.0
-CHARGE_PUMP_STEP_PERCENT_COARSE: float = 5.0
+SPREAD_CONTROLLER_KP: float = 2.0  # TODO: tune against ahpo_sim results
+SPREAD_CONTROLLER_DEADBAND_K: float = 0.3  # Kelvin; below this |e|, hold speed
+SPREAD_CONTROLLER_MAX_STEP_PERCENT: float = 5.0  # per-tick clamp
 
 # --- Settling/averaging timing model (used by timing.py) -----------------------
 # Ablauf Phase A/B: after a speed/frequency change (or once stability is detected),

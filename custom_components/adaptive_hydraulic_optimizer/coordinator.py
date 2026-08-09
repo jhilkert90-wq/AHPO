@@ -24,7 +24,7 @@ from .const import (
     CONF_OUTDOOR_TEMP,
     REQUIRED_ENTITY_KEYS,
 )
-from .core.cop import calculate_cop_for_row, calculate_spread_error_for_row
+from .core.cop import calculate_cop_for_row, calculate_delta_t, calculate_secondary_delta_t, calculate_spread_error_for_row, resolve_mode
 from .core.phase_manager import Phase, PhaseManager
 from .core.timing import Observation, SteadyPeriodDetector
 from .decision_log import DecisionLogger, build_decision_entry
@@ -70,14 +70,23 @@ class AhpoCoordinator:
             settling_minutes=settling_time_minutes,
             averaging_minutes=averaging_time_minutes,
         )
+        from .core.timing import AVERAGING_TIME_MINUTES as _AVG_DEFAULT
+        self._averaging_time_minutes: float = averaging_time_minutes if averaging_time_minutes is not None else _AVG_DEFAULT
         self._decision_logger = decision_logger
         self._last_written_speed: float | None = None
         self.last_result: LearningResult | None = None
         self.last_observation: Observation | None = None
+        self.last_primary_delta_t: float | None = None
+        self.last_secondary_delta_t: float | None = None
         self.current_operating_mode: str | None = None
         self.pump_write_error = False
         self._unsubscribers: list[Any] = []
         self._listeners: list[Callable[[], None]] = []
+
+    @property
+    def averaging_time_minutes(self) -> float:
+        """Configured averaging window duration in minutes."""
+        return self._averaging_time_minutes
 
     def add_listener(self, listener: Callable[[], None]) -> None:
         """Register a callback invoked after every processed learning cycle (entity push updates)."""
@@ -145,6 +154,19 @@ class AhpoCoordinator:
         if math.isnan(spread_error):
             return
 
+        # Compute and store individual ΔT values for sensors.
+        # Reset first so sensors reflect None when the mode is unresolvable.
+        self.last_primary_delta_t = None
+        self.last_secondary_delta_t = None
+        _mode = resolve_mode(operating_mode)
+        if _mode is not None:
+            self.last_primary_delta_t = calculate_delta_t(
+                row["primary_flow_temp"], row["primary_return_temp"], _mode
+            )
+            self.last_secondary_delta_t = calculate_secondary_delta_t(
+                row["secondary_flow_temp"], row["secondary_return_temp"], _mode
+            )
+
         observation = self._detector.observe(
             timestamp=now,
             outdoor_temp=row["outdoor_temp"],
@@ -189,10 +211,13 @@ class AhpoCoordinator:
                         cop_mean_logged=cell.cop_mean_logged,
                         n_measurements=cell.n_measurements,
                         phase=result.phase.name,
-                        hill_climb_direction=result.hill_climb_direction,
-                        hill_climb_step_size=result.hill_climb_step_size,
-                        hill_climb_reversals=result.hill_climb_reversals,
-                        hill_climb_improved=result.hill_climb_improved,
+                        controller_step_applied=result.controller_step_applied,
+                        controller_in_deadband=result.controller_in_deadband,
+                        controller_consecutive_deadband_ticks=result.controller_consecutive_deadband_ticks,
+                        deadband_k=self._learning_engine.spread_controller_deadband_k,
+                        kp=self._learning_engine.spread_controller_kp,
+                        improving=result.improving,
+                        is_first_observation=result.is_first_observation,
                     )
                     self._hass.async_create_task(self._decision_logger.async_log(log_entry))
                 self._last_written_speed = proposed

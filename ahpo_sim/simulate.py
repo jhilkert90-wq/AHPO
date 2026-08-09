@@ -14,7 +14,7 @@ from . import cop as cop_module
 from . import influx_loader
 from . import timing
 from .characteristic_map import CharacteristicMap, characteristic_map_heatmap
-from .optimizer import HillClimbingOptimizer
+from .optimizer import ProportionalSpreadController
 from .phase_manager import Phase, PhaseManager
 
 __all__ = ["SimulationResult", "run_simulation", "add_cop_column", "add_spread_error_column", "characteristic_map_heatmap"]
@@ -115,7 +115,7 @@ def run_simulation(
     Phase A (passive) ingestion happens for every valid row (or, by default, every
     settled steady period - see timing.build_stable_observations). Once a cell's
     confidence crosses the configured threshold, subsequent observations for
-    that cell also drive a HillClimbingOptimizer trace (simulated Phase B).
+    that cell also drive a ProportionalSpreadController trace (simulated Phase B).
 
     Note: with strict mode gating, data without resolvable operating_mode values
     ('heat'/'cool', or configured numeric codes) is ignored.
@@ -160,7 +160,7 @@ def run_simulation(
 
     characteristic_map = initial_map if initial_map is not None else CharacteristicMap()
     phase_manager = PhaseManager(characteristic_map)
-    optimizers: dict[tuple[float, float], HillClimbingOptimizer] = {}
+    optimizers: dict[tuple[float, float], ProportionalSpreadController] = {}
     active_fraction_index: list[pd.Timestamp] = []
     active_fraction_values: list[float] = []
 
@@ -187,7 +187,7 @@ def run_simulation(
         if phase_manager.get_phase(cell) is Phase.ACTIVE:
             key = characteristic_map.cell_key(outdoor_temp, compressor_frequency)
             optimizer = optimizers.setdefault(
-                key, HillClimbingOptimizer(initial_speed=charge_pump_speed)
+                key, ProportionalSpreadController(initial_speed=charge_pump_speed)
             )
             optimizer.step(spread_error)
             cell.source = "active"

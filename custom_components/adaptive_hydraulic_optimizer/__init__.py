@@ -15,8 +15,9 @@ from .const import (
     DEFAULT_OPTIONS,
     DOMAIN,
     OPT_AVERAGING_TIME_MINUTES,
-    OPT_CHARGE_PUMP_STEP_PERCENT,
-    OPT_CHARGE_PUMP_STEP_PERCENT_COARSE,
+    OPT_SPREAD_CONTROLLER_KP,
+    OPT_SPREAD_CONTROLLER_DEADBAND_K,
+    OPT_SPREAD_CONTROLLER_MAX_STEP_PERCENT,
     OPT_CONFIDENCE_AGE_HALFLIFE_DAYS,
     OPT_CONFIDENCE_MAX_SPREAD_ERROR_STD,
     OPT_CONFIDENCE_MIN_SAMPLES,
@@ -91,8 +92,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         heat_map=heat_map,
         phase_manager=phase_manager,
         min_charge_pump_speed=float(opts[OPT_MIN_CHARGE_PUMP_SPEED_PERCENT]),
-        charge_pump_step_percent=float(opts[OPT_CHARGE_PUMP_STEP_PERCENT]),
-        charge_pump_step_percent_coarse=float(opts[OPT_CHARGE_PUMP_STEP_PERCENT_COARSE]),
+        spread_controller_kp=float(opts[OPT_SPREAD_CONTROLLER_KP]),
+        spread_controller_deadband_k=float(opts[OPT_SPREAD_CONTROLLER_DEADBAND_K]),
+        spread_controller_max_step_percent=float(opts[OPT_SPREAD_CONTROLLER_MAX_STEP_PERCENT]),
     )
 
     coordinator = AhpoCoordinator(
@@ -117,6 +119,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "cool_map": cool_map,
         "heat_map": heat_map,
         "phase_manager": phase_manager,
+        "learning_engine": learning_engine,
         "coordinator": coordinator,
         "store": store,
         "unsubscribe_save": unsubscribe_save,

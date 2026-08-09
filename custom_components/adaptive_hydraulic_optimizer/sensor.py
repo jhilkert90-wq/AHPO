@@ -57,6 +57,39 @@ def _operating_mode(coordinator: AhpoCoordinator) -> str | None:
     return coordinator.current_operating_mode
 
 
+def _primary_delta_t(coordinator: AhpoCoordinator) -> float | None:
+    v = coordinator.last_primary_delta_t
+    return round(v, 3) if v is not None else None
+
+
+def _secondary_delta_t(coordinator: AhpoCoordinator) -> float | None:
+    v = coordinator.last_secondary_delta_t
+    return round(v, 3) if v is not None else None
+
+
+def _controller_status(coordinator: AhpoCoordinator) -> str | None:
+    result = coordinator.last_result
+    if result is None or result.phase.name != "ACTIVE":
+        return None
+    return "haltend" if result.controller_in_deadband else "regelnd"
+
+
+def _controller_step_applied(coordinator: AhpoCoordinator) -> float | None:
+    result = coordinator.last_result
+    if result is None or result.phase.name != "ACTIVE":
+        return None
+    return round(result.controller_step_applied, 2)
+
+
+def _controller_deadband_ticks_minutes(coordinator: AhpoCoordinator) -> float | None:
+    result = coordinator.last_result
+    if result is None or result.phase.name != "ACTIVE" or not result.controller_in_deadband:
+        return None
+    # Each tick corresponds to coordinator.averaging_time_minutes of settled data.
+    averaging_minutes = coordinator.averaging_time_minutes
+    return round(result.controller_consecutive_deadband_ticks * averaging_minutes, 1)
+
+
 SENSOR_DESCRIPTIONS: tuple[AhpoSensorDescription, ...] = (
     AhpoSensorDescription(
         key="current_spread_error",
@@ -85,6 +118,40 @@ SENSOR_DESCRIPTIONS: tuple[AhpoSensorDescription, ...] = (
         name="Operating mode",
         icon="mdi:thermostat",
         value_fn=_operating_mode,
+    ),
+    AhpoSensorDescription(
+        key="primary_delta_t",
+        name="Delta T Primär",
+        icon="mdi:thermometer-chevron-up",
+        native_unit_of_measurement="K",
+        value_fn=_primary_delta_t,
+    ),
+    AhpoSensorDescription(
+        key="secondary_delta_t",
+        name="Delta T Sekundär",
+        icon="mdi:thermometer-chevron-down",
+        native_unit_of_measurement="K",
+        value_fn=_secondary_delta_t,
+    ),
+    AhpoSensorDescription(
+        key="controller_status",
+        name="Regler-Status",
+        icon="mdi:play-pause",
+        value_fn=_controller_status,
+    ),
+    AhpoSensorDescription(
+        key="controller_step_applied",
+        name="Letzter Regelschritt",
+        icon="mdi:stairs",
+        native_unit_of_measurement="%",
+        value_fn=_controller_step_applied,
+    ),
+    AhpoSensorDescription(
+        key="controller_deadband_minutes",
+        name="Zeit in Totzone",
+        icon="mdi:timer-pause",
+        native_unit_of_measurement="min",
+        value_fn=_controller_deadband_ticks_minutes,
     ),
 )
 

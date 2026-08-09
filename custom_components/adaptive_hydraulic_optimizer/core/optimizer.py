@@ -1,72 +1,90 @@
-"""Hill-climbing optimizer with adaptive step size (Phase B only)."""
+"""Proportional spread-error controller for Phase B pump-speed regulation."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-CHARGE_PUMP_STEP_PERCENT: float = 1.0
-CHARGE_PUMP_STEP_PERCENT_COARSE: float = 5.0
+SPREAD_CONTROLLER_KP: float = 2.0  # TODO: tune against ahpo_sim results
+SPREAD_CONTROLLER_DEADBAND_K: float = 0.3
+SPREAD_CONTROLLER_MAX_STEP_PERCENT: float = 5.0
 
 
 @dataclass
-class HillClimbingState:
+class ProportionalControllerState:
     current_speed: float
-    direction: int = 1  # +1 (increase speed) or -1 (decrease speed)
-    step_size: float = 0.0
-    last_abs_spread_error: float | None = None
+    last_spread_error: float | None = None
+    last_step_applied: float = 0.0
+    in_deadband: bool = False
+    consecutive_in_deadband_ticks: int = 0
     history: list[tuple[float, float]] = field(default_factory=list)  # (speed, spread_error)
-    reversals: int = 0
 
 
-class HillClimbingOptimizer:
-    """Classic hill climbing: keep direction while |spread_error| decreases, else reverse and shrink step.
+class ProportionalSpreadController:
+    """P-only controller: sign of spread_error directly determines the required direction.
 
-    Step size starts coarse (unknown territory) and shrinks towards a fine floor
-    once the optimum's vicinity has been found (i.e. after direction reversals).
+    spread_error = ΔT_primary − ΔT_secondary.
+    e > 0 → pump too slow → increase speed.
+    e < 0 → pump too fast → decrease speed.
+    Inside the deadband the speed is held unchanged to avoid micro-hunting.
     """
 
     def __init__(
         self,
         initial_speed: float,
-        initial_direction: int = 1,
-        coarse_step_size: float | None = None,
-        fine_step_size: float | None = None,
+        kp: float | None = None,
+        deadband_k: float | None = None,
+        max_step_percent: float | None = None,
         min_speed: float = 0.0,
         max_speed: float = 100.0,
     ) -> None:
-        self._fine_step_size = fine_step_size or CHARGE_PUMP_STEP_PERCENT
-        self._coarse_step_size = coarse_step_size or CHARGE_PUMP_STEP_PERCENT_COARSE
+        self._kp = kp if kp is not None else SPREAD_CONTROLLER_KP
+        self._deadband_k = deadband_k if deadband_k is not None else SPREAD_CONTROLLER_DEADBAND_K
+        self._max_step_percent = max_step_percent if max_step_percent is not None else SPREAD_CONTROLLER_MAX_STEP_PERCENT
         self._min_speed = min_speed
         self._max_speed = max_speed
-        self.state = HillClimbingState(
-            current_speed=initial_speed,
-            direction=1 if initial_direction >= 0 else -1,
-            step_size=self._coarse_step_size,
-        )
+        self.state = ProportionalControllerState(current_speed=initial_speed)
+
+    @property
+    def kp(self) -> float:
+        return self._kp
+
+    @kp.setter
+    def kp(self, value: float) -> None:
+        self._kp = value
+
+    @property
+    def deadband_k(self) -> float:
+        return self._deadband_k
+
+    @deadband_k.setter
+    def deadband_k(self, value: float) -> None:
+        self._deadband_k = value
 
     @property
     def converged(self) -> bool:
-        """True once the step size has shrunk to the fine floor (near the optimum)."""
-        return self.state.step_size <= self._fine_step_size
+        """True once the controller is inside the deadband (speed is held)."""
+        return self.state.in_deadband
 
     def step(self, spread_error: float) -> float:
-        """Record the spread_error measured at the current speed and propose the next speed.
-
-        Improvement means |spread_error| decreased (we moved closer to zero error).
-        """
+        """Record spread_error at the current speed and return the next commanded speed."""
         state = self.state
-        improved = (
-            state.last_abs_spread_error is None
-            or abs(spread_error) < state.last_abs_spread_error
-        )
-        if state.last_abs_spread_error is not None and not improved:
-            state.direction *= -1
-            state.step_size = max(state.step_size / 2, self._fine_step_size)
-            state.reversals += 1
-
         state.history.append((state.current_speed, spread_error))
-        state.last_abs_spread_error = abs(spread_error)
 
-        next_speed = state.current_speed + state.direction * state.step_size
-        next_speed = min(max(next_speed, self._min_speed), self._max_speed)
+        if abs(spread_error) <= self._deadband_k:
+            state.in_deadband = True
+            state.consecutive_in_deadband_ticks += 1
+            state.last_step_applied = 0.0
+            state.last_spread_error = spread_error
+            return state.current_speed
+
+        state.in_deadband = False
+        state.consecutive_in_deadband_ticks = 0
+
+        raw_step = self._kp * spread_error
+        clamped_step = max(-self._max_step_percent, min(self._max_step_percent, raw_step))
+        next_speed = state.current_speed + clamped_step
+        next_speed = max(self._min_speed, min(self._max_speed, next_speed))
+
+        state.last_step_applied = next_speed - state.current_speed
+        state.last_spread_error = spread_error
         state.current_speed = next_speed
         return next_speed

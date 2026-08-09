@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .core.characteristic_map import CharacteristicMap, CharacteristicMapCell
-from .core.optimizer import HillClimbingOptimizer
+from .core.optimizer import ProportionalSpreadController
 from .core.phase_manager import Phase, PhaseManager
 from .core.timing import Observation
 
@@ -21,15 +21,16 @@ class LearningResult:
     phase: Phase
     proposed_charge_pump_speed: float | None  # only set when phase is ACTIVE
     operating_mode: str  # "cool" or "heat"
-    # Hill-climber state snapshot (only populated when phase is ACTIVE)
-    hill_climb_direction: int = 0
-    hill_climb_step_size: float = 0.0
-    hill_climb_reversals: int = 0
-    hill_climb_improved: bool = False
+    # Controller state snapshot (only populated when phase is ACTIVE)
+    controller_step_applied: float = 0.0
+    controller_in_deadband: bool = False
+    controller_consecutive_deadband_ticks: int = 0
+    improving: bool = False  # True when |spread_error| decreased since previous observation
+    is_first_observation: bool = False  # True on the very first tick for this cell
 
 
 class LearningEngine:
-    """Ties the characteristic map, phase manager and per-cell optimizers together."""
+    """Ties the characteristic map, phase manager and per-cell controllers together."""
 
     def __init__(
         self,
@@ -37,16 +38,18 @@ class LearningEngine:
         heat_map: CharacteristicMap,
         phase_manager: PhaseManager,
         min_charge_pump_speed: float = 0.0,
-        charge_pump_step_percent: float | None = None,
-        charge_pump_step_percent_coarse: float | None = None,
+        spread_controller_kp: float | None = None,
+        spread_controller_deadband_k: float | None = None,
+        spread_controller_max_step_percent: float | None = None,
     ) -> None:
         self._cool_map = cool_map
         self._heat_map = heat_map
         self._phase_manager = phase_manager
         self._min_charge_pump_speed = min_charge_pump_speed
-        self._charge_pump_step_percent = charge_pump_step_percent
-        self._charge_pump_step_percent_coarse = charge_pump_step_percent_coarse
-        self._optimizers: dict[tuple[str, float, float], HillClimbingOptimizer] = {}
+        self._spread_controller_kp = spread_controller_kp
+        self._spread_controller_deadband_k = spread_controller_deadband_k
+        self._spread_controller_max_step_percent = spread_controller_max_step_percent
+        self._controllers: dict[tuple[str, float, float], ProportionalSpreadController] = {}
 
     @property
     def min_charge_pump_speed(self) -> float:
@@ -55,6 +58,28 @@ class LearningEngine:
     @min_charge_pump_speed.setter
     def min_charge_pump_speed(self, value: float) -> None:
         self._min_charge_pump_speed = value
+
+    @property
+    def spread_controller_kp(self) -> float:
+        from .core.optimizer import SPREAD_CONTROLLER_KP
+        return self._spread_controller_kp if self._spread_controller_kp is not None else SPREAD_CONTROLLER_KP
+
+    @spread_controller_kp.setter
+    def spread_controller_kp(self, value: float) -> None:
+        self._spread_controller_kp = value
+        for ctrl in self._controllers.values():
+            ctrl.kp = value
+
+    @property
+    def spread_controller_deadband_k(self) -> float:
+        from .core.optimizer import SPREAD_CONTROLLER_DEADBAND_K
+        return self._spread_controller_deadband_k if self._spread_controller_deadband_k is not None else SPREAD_CONTROLLER_DEADBAND_K
+
+    @spread_controller_deadband_k.setter
+    def spread_controller_deadband_k(self, value: float) -> None:
+        self._spread_controller_deadband_k = value
+        for ctrl in self._controllers.values():
+            ctrl.deadband_k = value
 
     def _active_map(self, operating_mode: str) -> CharacteristicMap:
         """Return the characteristic map for the given operating mode."""
@@ -89,10 +114,11 @@ class LearningEngine:
         )
 
         proposed_speed: float | None = None
-        hill_climb_direction: int = 0
-        hill_climb_step_size: float = 0.0
-        hill_climb_reversals: int = 0
-        hill_climb_improved: bool = False
+        controller_step_applied: float = 0.0
+        controller_in_deadband: bool = False
+        controller_consecutive_deadband_ticks: int = 0
+        improving: bool = False
+        is_first_observation: bool = False
         if phase is Phase.ACTIVE:
             key = (
                 operating_mode,
@@ -100,25 +126,24 @@ class LearningEngine:
                     observation.outdoor_temp, observation.compressor_frequency
                 ),
             )
-            optimizer = self._optimizers.setdefault(
-                key, HillClimbingOptimizer(
+            controller = self._controllers.setdefault(
+                key, ProportionalSpreadController(
                     initial_speed=recorded_speed,
+                    kp=self._spread_controller_kp,
+                    deadband_k=self._spread_controller_deadband_k,
+                    max_step_percent=self._spread_controller_max_step_percent,
                     min_speed=self._min_charge_pump_speed,
-                    fine_step_size=self._charge_pump_step_percent,
-                    coarse_step_size=self._charge_pump_step_percent_coarse,
                 )
             )
-            # Capture the state *before* the step so we can report whether |spread_error| improved.
-            # prev_abs is None only on the very first observation for this cell/optimizer;
-            # treat that as a neutral initial state so the reason string is accurate.
-            prev_abs = optimizer.state.last_abs_spread_error
-            hill_climb_improved = (
-                prev_abs is not None and abs(observation.spread_error) < prev_abs
+            prev_error = controller.state.last_spread_error
+            improving = (
+                prev_error is not None and abs(observation.spread_error) < abs(prev_error)
             )
-            proposed_speed = optimizer.step(observation.spread_error)
-            hill_climb_direction = optimizer.state.direction
-            hill_climb_step_size = optimizer.state.step_size
-            hill_climb_reversals = optimizer.state.reversals
+            is_first_observation = prev_error is None
+            proposed_speed = controller.step(observation.spread_error)
+            controller_step_applied = controller.state.last_step_applied
+            controller_in_deadband = controller.state.in_deadband
+            controller_consecutive_deadband_ticks = controller.state.consecutive_in_deadband_ticks
             cell.source = "active"
             # Pin the stored optimal speed to the empirically best-error speed so it always
             # reflects the speed that achieved the smallest |e|, not the weighted mean
@@ -131,8 +156,9 @@ class LearningEngine:
             phase=phase,
             proposed_charge_pump_speed=proposed_speed,
             operating_mode=operating_mode,
-            hill_climb_direction=hill_climb_direction,
-            hill_climb_step_size=hill_climb_step_size,
-            hill_climb_reversals=hill_climb_reversals,
-            hill_climb_improved=hill_climb_improved,
+            controller_step_applied=controller_step_applied,
+            controller_in_deadband=controller_in_deadband,
+            controller_consecutive_deadband_ticks=controller_consecutive_deadband_ticks,
+            improving=improving,
+            is_first_observation=is_first_observation,
         )

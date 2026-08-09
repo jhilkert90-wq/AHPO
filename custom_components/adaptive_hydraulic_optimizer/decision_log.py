@@ -98,36 +98,32 @@ def build_decision_entry(
     cop_mean_logged: float,
     n_measurements: int,
     phase: str,
-    hill_climb_direction: int,
-    hill_climb_step_size: float,
-    hill_climb_reversals: int,
-    hill_climb_improved: bool,
+    controller_step_applied: float,
+    controller_in_deadband: bool,
+    controller_consecutive_deadband_ticks: int,
+    deadband_k: float,
+    kp: float,
+    improving: bool,
+    is_first_observation: bool = False,
 ) -> dict[str, Any]:
     """Construct a structured log entry and populate the human-readable *reason* field."""
 
+    e = spread_error_at_current
     if previous_speed is None:
         reason = "First speed write for this session."
-    elif not hill_climb_improved and hill_climb_reversals == 0 and hill_climb_step_size > 0:
-        direction_str = "up" if hill_climb_direction > 0 else "down"
+    elif controller_in_deadband:
         reason = (
-            f"First observation for this cell; "
-            f"starting hill-climb {direction_str} with step {hill_climb_step_size:.1f}%."
-        )
-    elif hill_climb_improved:
-        direction_str = "up" if hill_climb_direction > 0 else "down"
-        prev_abs = abs(spread_error_at_current)
-        reason = (
-            f"Spread error improved (|e| decreased to {prev_abs:.3f} K); "
-            f"continuing {direction_str} by {hill_climb_step_size:.1f}% "
-            f"({hill_climb_reversals} reversals so far)."
+            f"within deadband (|e|={abs(e):.2f}K <= {deadband_k:.2f}K); holding speed."
         )
     else:
-        direction_str = "up" if hill_climb_direction > 0 else "down"
+        if is_first_observation:
+            trend = "first observation"
+        elif improving:
+            trend = "improving"
+        else:
+            trend = "worsening"
         reason = (
-            f"Spread error did not improve (|e| = {abs(spread_error_at_current):.3f} K); "
-            f"reversed direction, halved step to {hill_climb_step_size:.1f}%, "
-            f"now going {direction_str} "
-            f"({hill_climb_reversals} reversals so far)."
+            f"e={e:.2f}K -> step {controller_step_applied:+.1f}% (Kp={kp:.2f}); {trend} since last tick."
         )
 
     return {
@@ -143,9 +139,8 @@ def build_decision_entry(
         "cop_mean_logged": cop_mean_logged,
         "n_measurements": n_measurements,
         "phase": phase,
-        "hill_climb_direction": hill_climb_direction,
-        "hill_climb_step_size": hill_climb_step_size,
-        "hill_climb_reversals": hill_climb_reversals,
-        "hill_climb_improved": hill_climb_improved,
+        "controller_step_applied": controller_step_applied,
+        "controller_in_deadband": controller_in_deadband,
+        "controller_consecutive_deadband_ticks": controller_consecutive_deadband_ticks,
         "reason": reason,
     }
