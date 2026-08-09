@@ -135,11 +135,11 @@ class LearningEngine:
                     min_speed=self._min_charge_pump_speed,
                 )
             )
-            prev_abs = controller.state.last_spread_error
+            prev_error = controller.state.last_spread_error
             improving = (
-                prev_abs is not None and abs(observation.spread_error) < abs(prev_abs)
+                prev_error is not None and abs(observation.spread_error) < abs(prev_error)
             )
-            is_first_observation = prev_abs is None
+            is_first_observation = prev_error is None
             proposed_speed = controller.step(observation.spread_error)
             controller_step_applied = controller.state.last_step_applied
             controller_in_deadband = controller.state.in_deadband

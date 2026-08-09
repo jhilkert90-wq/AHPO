@@ -155,6 +155,9 @@ class AhpoCoordinator:
             return
 
         # Compute and store individual ΔT values for sensors.
+        # Reset first so sensors reflect None when the mode is unresolvable.
+        self.last_primary_delta_t = None
+        self.last_secondary_delta_t = None
         _mode = resolve_mode(operating_mode)
         if _mode is not None:
             self.last_primary_delta_t = calculate_delta_t(

@@ -113,7 +113,7 @@ def plot_controller_convergence(
         ax.set_title("Controller convergence - no active cells")
         return ax
 
-    ax.axhline(0.0, color="black", linewidth=0.8, linestyle="--", label="|e| = 0 (target)")
+    ax.axhline(0.0, color="black", linewidth=0.8, linestyle="--", label="e = 0 (target)")
     if deadband_k is not None and deadband_k > 0:
         ax.axhspan(-deadband_k, deadband_k, alpha=0.12, color="green", label=f"deadband ±{deadband_k:.2f}K")
 
@@ -140,7 +140,7 @@ def plot_optimizer_convergence(
     ax: Axes | None = None,
     max_cells: int = 8,
 ) -> Axes:
-    """|spread_error| per controller step — backward-compatible alias for plot_controller_convergence."""
+    """spread_error per controller step — backward-compatible alias for plot_controller_convergence."""
     return plot_controller_convergence(optimizer_traces, ax=ax, max_cells=max_cells)
 
 

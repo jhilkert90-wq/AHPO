@@ -85,7 +85,7 @@ def _controller_deadband_ticks_minutes(coordinator: AhpoCoordinator) -> float | 
     result = coordinator.last_result
     if result is None or result.phase.name != "ACTIVE" or not result.controller_in_deadband:
         return None
-    # Each tick corresponds to AVERAGING_TIME_MINUTES of settled data.
+    # Each tick corresponds to coordinator.averaging_time_minutes of settled data.
     averaging_minutes = coordinator.averaging_time_minutes
     return round(result.controller_consecutive_deadband_ticks * averaging_minutes, 1)
 
