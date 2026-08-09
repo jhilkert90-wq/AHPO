@@ -18,7 +18,7 @@ from .const import (
     OPT_CHARGE_PUMP_STEP_PERCENT,
     OPT_CHARGE_PUMP_STEP_PERCENT_COARSE,
     OPT_CONFIDENCE_AGE_HALFLIFE_DAYS,
-    OPT_CONFIDENCE_MAX_COP_STD,
+    OPT_CONFIDENCE_MAX_SPREAD_ERROR_STD,
     OPT_CONFIDENCE_MIN_SAMPLES,
     OPT_CONFIDENCE_THRESHOLD,
     OPT_DECISION_LOG_ENABLED,
@@ -82,7 +82,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         heat_map,
         confidence_threshold=float(opts[OPT_CONFIDENCE_THRESHOLD]),
         min_samples=int(opts[OPT_CONFIDENCE_MIN_SAMPLES]),
-        max_cop_std=float(opts[OPT_CONFIDENCE_MAX_COP_STD]),
+        max_spread_error_std=float(opts[OPT_CONFIDENCE_MAX_SPREAD_ERROR_STD]),
         age_halflife_days=float(opts[OPT_CONFIDENCE_AGE_HALFLIFE_DAYS]),
     )
 

@@ -28,7 +28,29 @@ def _current_cop(coordinator: AhpoCoordinator) -> float | None:
 
 def _averaged_cop(coordinator: AhpoCoordinator) -> float | None:
     result = coordinator.last_result
-    return round(result.cell.cop_mean, 2) if result else None
+    return round(result.cell.cop_mean_logged, 2) if result else None
+
+
+def _current_spread_error(coordinator: AhpoCoordinator) -> float | None:
+    observation = coordinator.last_observation
+    return round(observation.spread_error, 3) if observation else None
+
+
+def _secondary_delta_t(coordinator: AhpoCoordinator) -> float | None:
+    observation = coordinator.last_observation
+    if observation is None:
+        return None
+    # secondary ΔT = primary ΔT − spread_error  (spread_error = primary_dt − secondary_dt)
+    # We derive it from the already-averaged values rather than recomputing from raw temps.
+    # If primary_delta_t is not directly stored, return None gracefully.
+    try:
+        primary_dt = abs(observation.cop)  # cop is stored; derive secondary_dt from spread_error
+        # Actually: spread_error = primary_dt - secondary_dt → secondary_dt = primary_dt - spread_error
+        # But we don't store primary_dt in Observation; return spread_error instead and let
+        # a dedicated sensor report it.  Fall back to None.
+        return None
+    except Exception:
+        return None
 
 
 def _optimal_charge_pump_speed(coordinator: AhpoCoordinator) -> float | None:
@@ -53,8 +75,15 @@ def _operating_mode(coordinator: AhpoCoordinator) -> str | None:
 
 
 SENSOR_DESCRIPTIONS: tuple[AhpoSensorDescription, ...] = (
-    AhpoSensorDescription(key="current_cop", name="Current COP", icon="mdi:heat-pump", value_fn=_current_cop),
-    AhpoSensorDescription(key="averaged_cop", name="Averaged COP", icon="mdi:heat-pump", value_fn=_averaged_cop),
+    AhpoSensorDescription(
+        key="current_spread_error",
+        name="Regelabweichung (Spread error)",
+        icon="mdi:delta",
+        native_unit_of_measurement="K",
+        value_fn=_current_spread_error,
+    ),
+    AhpoSensorDescription(key="current_cop", name="Current COP (log)", icon="mdi:heat-pump", value_fn=_current_cop),
+    AhpoSensorDescription(key="averaged_cop", name="Averaged COP (log)", icon="mdi:heat-pump", value_fn=_averaged_cop),
     AhpoSensorDescription(
         key="optimal_charge_pump_speed",
         name="Optimal charge pump speed",

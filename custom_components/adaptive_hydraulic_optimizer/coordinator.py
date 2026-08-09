@@ -24,7 +24,7 @@ from .const import (
     CONF_OUTDOOR_TEMP,
     REQUIRED_ENTITY_KEYS,
 )
-from .core.cop import calculate_cop_for_row
+from .core.cop import calculate_cop_for_row, calculate_spread_error_for_row
 from .core.phase_manager import Phase, PhaseManager
 from .core.timing import Observation, SteadyPeriodDetector
 from .decision_log import DecisionLogger, build_decision_entry
@@ -141,12 +141,17 @@ class AhpoCoordinator:
         if math.isnan(cop):
             return
 
+        spread_error = calculate_spread_error_for_row(row, default_mode=operating_mode)
+        if math.isnan(spread_error):
+            return
+
         observation = self._detector.observe(
             timestamp=now,
             outdoor_temp=row["outdoor_temp"],
             compressor_frequency=row["compressor_frequency"],
             charge_pump_speed=row[CONF_CHARGE_PUMP_SPEED_INPUT],
             cop=cop,
+            spread_error=spread_error,
         )
         if observation is None:
             return
@@ -178,9 +183,10 @@ class AhpoCoordinator:
                         compressor_freq_bin=cell.compressor_freq_bin,
                         previous_speed=self._last_written_speed,
                         proposed_speed=proposed,
+                        spread_error_at_current=observation.spread_error,
+                        best_abs_spread_error=cell.best_abs_spread_error,
                         cop_at_current=observation.cop,
-                        best_cop=cell.best_cop,
-                        cop_mean=cell.cop_mean,
+                        cop_mean_logged=cell.cop_mean_logged,
                         n_measurements=cell.n_measurements,
                         phase=result.phase.name,
                         hill_climb_direction=result.hill_climb_direction,

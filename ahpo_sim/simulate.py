@@ -17,11 +17,11 @@ from .characteristic_map import CharacteristicMap, characteristic_map_heatmap
 from .optimizer import HillClimbingOptimizer
 from .phase_manager import Phase, PhaseManager
 
-__all__ = ["SimulationResult", "run_simulation", "add_cop_column", "characteristic_map_heatmap"]
+__all__ = ["SimulationResult", "run_simulation", "add_cop_column", "add_spread_error_column", "characteristic_map_heatmap"]
 
 logger = logging.getLogger(__name__)
 
-REQUIRED_COLUMNS = ("outdoor_temp", "compressor_frequency", "charge_pump_speed", "cop")
+REQUIRED_COLUMNS = ("outdoor_temp", "compressor_frequency", "charge_pump_speed", "cop", "spread_error")
 
 
 def add_cop_column(df: pd.DataFrame, default_mode: str | None = None) -> pd.DataFrame:
@@ -59,6 +59,37 @@ def add_cop_column(df: pd.DataFrame, default_mode: str | None = None) -> pd.Data
     return result
 
 
+def add_spread_error_column(df: pd.DataFrame, default_mode: str | None = None) -> pd.DataFrame:
+    """Compute and attach a signed spread_error column (primary ΔT − secondary ΔT).
+
+    Rows without resolvable mode or missing secondary temperature columns get NaN.
+    The COP column must already exist (call add_cop_column first).
+    """
+    result = df.copy()
+
+    resolved_default_mode = cop_module.resolve_mode(default_mode)
+    if "operating_mode" in result.columns:
+        modes = result["operating_mode"].map(cop_module.resolve_mode)
+        if resolved_default_mode is not None:
+            modes = modes.fillna(resolved_default_mode)
+    else:
+        modes = pd.Series(resolved_default_mode, index=result.index)
+
+    valid_modes = modes.isin((cop_module.HEATING, cop_module.COOLING))
+
+    primary_dt = (result["primary_flow_temp"] - result["primary_return_temp"]).abs()
+    primary_dt = primary_dt.where(valid_modes, math.nan)
+
+    if "secondary_flow_temp" in result.columns and "secondary_return_temp" in result.columns:
+        secondary_dt = (result["secondary_flow_temp"] - result["secondary_return_temp"]).abs()
+        secondary_dt = secondary_dt.where(valid_modes, math.nan)
+    else:
+        secondary_dt = pd.Series(math.nan, index=result.index)
+
+    result["spread_error"] = primary_dt - secondary_dt
+    return result
+
+
 @dataclass
 class SimulationResult:
     """Aggregated outputs of one historical simulation run."""
@@ -66,6 +97,7 @@ class SimulationResult:
     characteristic_map: CharacteristicMap
     phase_manager: PhaseManager
     cop_series: pd.Series
+    spread_error_series: pd.Series
     active_cell_fraction_over_time: pd.Series
     optimizer_traces: dict[tuple[float, float], list[tuple[float, float]]] = field(
         default_factory=dict
@@ -91,8 +123,11 @@ def run_simulation(
     if df is None:
         df = influx_loader.load_data()
     df = add_cop_column(df, default_mode=default_mode)
+    df = add_spread_error_column(df, default_mode=default_mode)
 
-    valid = df.dropna(subset=list(REQUIRED_COLUMNS))
+    # Drop rows where COP or spread_error is unavailable.  cop must be > 0 (physical);
+    # spread_error may be any sign — only NaN means the row is unusable.
+    valid = df.dropna(subset=["outdoor_temp", "compressor_frequency", "charge_pump_speed", "cop", "spread_error"])
     valid = valid[valid["cop"] > 0]
 
     outdoor_temp_min, outdoor_temp_max = config.OUTDOOR_TEMP_PLAUSIBLE_RANGE_C
@@ -136,12 +171,14 @@ def run_simulation(
         compressor_frequency = row["compressor_frequency"]
         charge_pump_speed = row["charge_pump_speed"]
         cop_value = row["cop"]
+        spread_error = row["spread_error"]
 
         cell = characteristic_map.update(
             outdoor_temp,
             compressor_frequency,
             charge_pump_speed,
-            cop_value,
+            spread_error,
+            cop=cop_value,
             timestamp=timestamp,
             source="passive",
         )
@@ -152,7 +189,7 @@ def run_simulation(
             optimizer = optimizers.setdefault(
                 key, HillClimbingOptimizer(initial_speed=charge_pump_speed)
             )
-            optimizer.step(cop_value)
+            optimizer.step(spread_error)
             cell.source = "active"
 
         active_fraction_index.append(timestamp)
@@ -174,6 +211,7 @@ def run_simulation(
         characteristic_map=characteristic_map,
         phase_manager=phase_manager,
         cop_series=valid["cop"],
+        spread_error_series=valid["spread_error"],
         active_cell_fraction_over_time=active_cell_fraction_over_time,
         optimizer_traces=optimizer_traces,
     )
@@ -231,7 +269,8 @@ if __name__ == "__main__":
     )
 
     print(f"Characteristic map cells: {len(result.characteristic_map.all_cells())}")
-    print(f"Mean COP: {result.cop_series.mean():.2f}")
+    print(f"Mean |spread error|: {result.spread_error_series.abs().mean():.3f} K  (primary — secondary ΔT)")
+    print(f"Mean COP (logged, not optimized): {result.cop_series.mean():.2f}")
     print(f"Final active-cell fraction: {result.active_cell_fraction_over_time.iloc[-1]:.2%}")
 
     if args.export_map:

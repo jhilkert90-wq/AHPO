@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 from datetime import datetime
 from pathlib import Path
@@ -91,9 +92,10 @@ def build_decision_entry(
     compressor_freq_bin: float,
     previous_speed: float | None,
     proposed_speed: float,
+    spread_error_at_current: float,
+    best_abs_spread_error: float,
     cop_at_current: float,
-    best_cop: float,
-    cop_mean: float,
+    cop_mean_logged: float,
     n_measurements: int,
     phase: str,
     hill_climb_direction: int,
@@ -106,7 +108,6 @@ def build_decision_entry(
     if previous_speed is None:
         reason = "First speed write for this session."
     elif not hill_climb_improved and hill_climb_reversals == 0 and hill_climb_step_size > 0:
-        # First observation for this cell/optimizer — no prior COP to compare against.
         direction_str = "up" if hill_climb_direction > 0 else "down"
         reason = (
             f"First observation for this cell; "
@@ -114,15 +115,16 @@ def build_decision_entry(
         )
     elif hill_climb_improved:
         direction_str = "up" if hill_climb_direction > 0 else "down"
+        prev_abs = abs(spread_error_at_current)
         reason = (
-            f"COP improved ({cop_at_current:.3f} > prev); "
+            f"Spread error improved (|e| decreased to {prev_abs:.3f} K); "
             f"continuing {direction_str} by {hill_climb_step_size:.1f}% "
             f"({hill_climb_reversals} reversals so far)."
         )
     else:
         direction_str = "up" if hill_climb_direction > 0 else "down"
         reason = (
-            f"COP did not improve ({cop_at_current:.3f}); "
+            f"Spread error did not improve (|e| = {abs(spread_error_at_current):.3f} K); "
             f"reversed direction, halved step to {hill_climb_step_size:.1f}%, "
             f"now going {direction_str} "
             f"({hill_climb_reversals} reversals so far)."
@@ -135,9 +137,10 @@ def build_decision_entry(
         "compressor_freq_bin": compressor_freq_bin,
         "previous_speed": previous_speed,
         "proposed_speed": proposed_speed,
+        "spread_error_at_current": spread_error_at_current,
+        "best_abs_spread_error": best_abs_spread_error if math.isfinite(best_abs_spread_error) else None,
         "cop_at_current": cop_at_current,
-        "best_cop": best_cop if best_cop != float("-inf") else None,
-        "cop_mean": cop_mean,
+        "cop_mean_logged": cop_mean_logged,
         "n_measurements": n_measurements,
         "phase": phase,
         "hill_climb_direction": hill_climb_direction,

@@ -38,7 +38,7 @@ OPTIONAL_ENTITY_KEYS = (CONF_OPERATING_MODE, CONF_ERROR_STATUS)
 # --- Options (tunable at runtime via the Options Flow, added in Milestone 2) ---
 OPT_CONFIDENCE_THRESHOLD = "confidence_threshold"
 OPT_CONFIDENCE_MIN_SAMPLES = "confidence_min_samples"
-OPT_CONFIDENCE_MAX_COP_STD = "confidence_max_cop_std"
+OPT_CONFIDENCE_MAX_SPREAD_ERROR_STD = "confidence_max_spread_error_std"
 OPT_CONFIDENCE_AGE_HALFLIFE_DAYS = "confidence_age_halflife_days"
 OPT_SETTLING_TIME_MINUTES = "settling_time_minutes"
 OPT_AVERAGING_TIME_MINUTES = "averaging_time_minutes"
@@ -51,7 +51,7 @@ OPT_DECISION_LOG_ENABLED = "decision_log_enabled"
 DEFAULT_OPTIONS: dict[str, float | bool] = {
     OPT_CONFIDENCE_THRESHOLD: 0.7,
     OPT_CONFIDENCE_MIN_SAMPLES: 5,
-    OPT_CONFIDENCE_MAX_COP_STD: 1.0,
+    OPT_CONFIDENCE_MAX_SPREAD_ERROR_STD: 0.5,
     OPT_CONFIDENCE_AGE_HALFLIFE_DAYS: 30.0,
     OPT_SETTLING_TIME_MINUTES: 3.0,
     OPT_AVERAGING_TIME_MINUTES: 5.0,
