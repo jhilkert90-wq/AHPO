@@ -42,8 +42,9 @@ OPT_CONFIDENCE_MAX_SPREAD_ERROR_STD = "confidence_max_spread_error_std"
 OPT_CONFIDENCE_AGE_HALFLIFE_DAYS = "confidence_age_halflife_days"
 OPT_SETTLING_TIME_MINUTES = "settling_time_minutes"
 OPT_AVERAGING_TIME_MINUTES = "averaging_time_minutes"
-OPT_CHARGE_PUMP_STEP_PERCENT = "charge_pump_step_percent"
-OPT_CHARGE_PUMP_STEP_PERCENT_COARSE = "charge_pump_step_percent_coarse"
+OPT_SPREAD_CONTROLLER_KP = "spread_controller_kp"
+OPT_SPREAD_CONTROLLER_DEADBAND_K = "spread_controller_deadband_k"
+OPT_SPREAD_CONTROLLER_MAX_STEP_PERCENT = "spread_controller_max_step_percent"
 OPT_MIN_COMPRESSOR_FREQUENCY_HZ = "min_compressor_frequency_hz"
 OPT_MIN_CHARGE_PUMP_SPEED_PERCENT = "min_charge_pump_speed_percent"
 OPT_DECISION_LOG_ENABLED = "decision_log_enabled"
@@ -55,8 +56,9 @@ DEFAULT_OPTIONS: dict[str, float | bool] = {
     OPT_CONFIDENCE_AGE_HALFLIFE_DAYS: 30.0,
     OPT_SETTLING_TIME_MINUTES: 3.0,
     OPT_AVERAGING_TIME_MINUTES: 5.0,
-    OPT_CHARGE_PUMP_STEP_PERCENT: 1.0,
-    OPT_CHARGE_PUMP_STEP_PERCENT_COARSE: 5.0,
+    OPT_SPREAD_CONTROLLER_KP: 2.0,
+    OPT_SPREAD_CONTROLLER_DEADBAND_K: 0.3,
+    OPT_SPREAD_CONTROLLER_MAX_STEP_PERCENT: 5.0,
     OPT_MIN_COMPRESSOR_FREQUENCY_HZ: 20.0,
     OPT_MIN_CHARGE_PUMP_SPEED_PERCENT: 15.0,
     OPT_DECISION_LOG_ENABLED: False,

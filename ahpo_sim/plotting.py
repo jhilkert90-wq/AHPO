@@ -95,34 +95,53 @@ def plot_active_cell_fraction(active_cell_fraction_over_time: pd.Series, ax: Axe
     return ax
 
 
+def plot_controller_convergence(
+    optimizer_traces: dict[tuple[float, float], list[tuple[float, float]]],
+    deadband_k: float | None = None,
+    ax: Axes | None = None,
+    max_cells: int = 8,
+) -> Axes:
+    """spread_error per controller step for the most active characteristic-map cells.
+
+    Shades the deadband (±deadband_k) as a horizontal band around zero so it is
+    immediately visible when the controller has settled inside it.
+    """
+    if ax is None:
+        _, ax = plt.subplots()
+    traces_by_length = sorted(optimizer_traces.items(), key=lambda item: len(item[1]), reverse=True)
+    if not traces_by_length:
+        ax.set_title("Controller convergence - no active cells")
+        return ax
+
+    ax.axhline(0.0, color="black", linewidth=0.8, linestyle="--", label="|e| = 0 (target)")
+    if deadband_k is not None and deadband_k > 0:
+        ax.axhspan(-deadband_k, deadband_k, alpha=0.12, color="green", label=f"deadband ±{deadband_k:.2f}K")
+
+    for (outdoor_temp_bin, compressor_freq_bin), history in traces_by_length[:max_cells]:
+        errors = [e for _, e in history]
+        ticks = range(1, len(errors) + 1)
+        ax.plot(
+            ticks,
+            errors,
+            marker="o",
+            markersize=3,
+            label=f"AT={outdoor_temp_bin:g}°C, Hz={compressor_freq_bin:g}",
+        )
+    ax.set_title("P-controller convergence (spread error per step)")
+    ax.set_xlabel("Step")
+    ax.set_ylabel("e [K]")
+    ax.legend(fontsize="x-small", loc="best")
+    return ax
+
+
+# Keep backward-compatible alias
 def plot_optimizer_convergence(
     optimizer_traces: dict[tuple[float, float], list[tuple[float, float]]],
     ax: Axes | None = None,
     max_cells: int = 8,
 ) -> Axes:
-    """|spread_error| per hill-climbing step for the most active characteristic-map cells."""
-    if ax is None:
-        _, ax = plt.subplots()
-    traces_by_length = sorted(optimizer_traces.items(), key=lambda item: len(item[1]), reverse=True)
-    if not traces_by_length:
-        ax.set_title("Optimizer convergence - no active cells")
-        return ax
-
-    ax.axhline(0.0, color="black", linewidth=0.8, linestyle="--", label="|e| = 0 (target)")
-    for (outdoor_temp_bin, compressor_freq_bin), history in traces_by_length[:max_cells]:
-        abs_errors = [abs(e) for _, e in history]
-        ax.plot(
-            range(1, len(abs_errors) + 1),
-            abs_errors,
-            marker="o",
-            markersize=3,
-            label=f"AT={outdoor_temp_bin:g}°C, Hz={compressor_freq_bin:g}",
-        )
-    ax.set_title("Optimizer convergence (|spread error| per hill-climbing step)")
-    ax.set_xlabel("Step")
-    ax.set_ylabel("|e| [K]")
-    ax.legend(fontsize="x-small", loc="best")
-    return ax
+    """|spread_error| per controller step — backward-compatible alias for plot_controller_convergence."""
+    return plot_controller_convergence(optimizer_traces, ax=ax, max_cells=max_cells)
 
 
 def plot_simulation_summary(result: "SimulationResult", save_path: str | Path | None = None) -> Figure:
@@ -133,7 +152,7 @@ def plot_simulation_summary(result: "SimulationResult", save_path: str | Path | 
     plot_cop_series(result.cop_series, ax=axes[0, 1])
     plot_optimal_speed_heatmap(result.characteristic_map, ax=axes[0, 2])
     plot_active_cell_fraction(result.active_cell_fraction_over_time, ax=axes[1, 0])
-    plot_optimizer_convergence(result.optimizer_traces, ax=axes[1, 1])
+    plot_controller_convergence(result.optimizer_traces, ax=axes[1, 1])
     plot_characteristic_map_heatmap(result.characteristic_map, value="best_abs_spread_error", ax=axes[1, 2])
     axes[1, 2].set_title("Characteristic map: best |spread error| [K]")
     fig.tight_layout()
