@@ -66,6 +66,14 @@ def validate_mapping(mapping: dict[str, str | None]) -> None:
             f"{missing}. Set a raw column name for each of these in config.py."
         )
 
+# NOTE: validate_mapping(INFLUX_FIELD_MAPPING) is intentionally NOT called at module load here.
+# secondary_flow_temp and secondary_return_temp are in MANDATORY_FIELDS but currently have
+# None values (placeholder) until the real InfluxDB column names are filled in.
+# Once you set those two column names above, restore the call:
+#   validate_mapping(INFLUX_FIELD_MAPPING)
+# The influx_loader.load_data() will fail fast at runtime with a clear DataLoadError
+# if either column is missing from the CSV, providing an equivalent safety net in the meantime.
+
 # --- Data source --------------------------------------------------------------
 # Phase 1 uses a CSV export of historical InfluxDB (v1) data; no live query yet.
 DEFAULT_CSV_PATH = Path(__file__).resolve().parent.parent / "sensordaten_2025-06-19_ab.csv"

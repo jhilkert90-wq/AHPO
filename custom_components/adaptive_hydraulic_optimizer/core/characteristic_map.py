@@ -34,6 +34,7 @@ class CharacteristicMapCell:
     spread_error_std: float = 0.0  # kept up-to-date after each record()
     spread_error_weight_sum: float = 0.0  # cumulative weight backing optimal_charge_pump_speed
     cop_mean_logged: float = 0.0  # unweighted arithmetic mean of COP — informational only
+    n_cop_measurements: int = 0  # number of observations that carried a valid COP value
     last_updated: datetime | None = None
     source: str = "passive"  # "passive" (Phase A) or "active" (Phase B)
     confidence_score: float = 0.0
@@ -75,9 +76,11 @@ class CharacteristicMapCell:
             self.best_spread_error_speed = charge_pump_speed
 
         # Informational COP running mean (unweighted, no influence on optimization).
+        # Uses its own counter so NaN observations don't bias the average.
         if not (cop is None or (isinstance(cop, float) and math.isnan(cop))):
+            self.n_cop_measurements += 1
             cop_delta = cop - self.cop_mean_logged
-            self.cop_mean_logged += cop_delta / self.n_measurements
+            self.cop_mean_logged += cop_delta / self.n_cop_measurements
 
         self.last_updated = timestamp
         self.source = source

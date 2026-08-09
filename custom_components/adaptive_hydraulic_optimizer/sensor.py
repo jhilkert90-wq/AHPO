@@ -36,23 +36,6 @@ def _current_spread_error(coordinator: AhpoCoordinator) -> float | None:
     return round(observation.spread_error, 3) if observation else None
 
 
-def _secondary_delta_t(coordinator: AhpoCoordinator) -> float | None:
-    observation = coordinator.last_observation
-    if observation is None:
-        return None
-    # secondary ΔT = primary ΔT − spread_error  (spread_error = primary_dt − secondary_dt)
-    # We derive it from the already-averaged values rather than recomputing from raw temps.
-    # If primary_delta_t is not directly stored, return None gracefully.
-    try:
-        primary_dt = abs(observation.cop)  # cop is stored; derive secondary_dt from spread_error
-        # Actually: spread_error = primary_dt - secondary_dt → secondary_dt = primary_dt - spread_error
-        # But we don't store primary_dt in Observation; return spread_error instead and let
-        # a dedicated sensor report it.  Fall back to None.
-        return None
-    except Exception:
-        return None
-
-
 def _optimal_charge_pump_speed(coordinator: AhpoCoordinator) -> float | None:
     result = coordinator.last_result
     if result is None or result.cell.optimal_charge_pump_speed is None:

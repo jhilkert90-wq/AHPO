@@ -1,6 +1,8 @@
 """Tests for optimizer.py."""
 from __future__ import annotations
 
+import pytest
+
 from ahpo_sim.optimizer import HillClimbingOptimizer
 
 
@@ -74,6 +76,3 @@ def test_shrinks_abs_error_from_negative_start() -> None:
     for e in errors:
         opt.step(spread_error=e)
     assert opt.state.last_abs_spread_error == pytest.approx(0.2)
-
-
-import pytest  # noqa: E402 — imported after function definitions for pytest.approx use above
