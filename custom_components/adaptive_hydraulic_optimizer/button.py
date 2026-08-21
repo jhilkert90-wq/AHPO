@@ -1,6 +1,8 @@
 """Button platform: reset actions for the characteristic map / confidence scores."""
 from __future__ import annotations
 
+from itertools import chain
+
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -55,5 +57,5 @@ class AhpoResetConfidenceButton(ButtonEntity):
         self._attr_device_info = ahpo_device_info(entry)
 
     async def async_press(self) -> None:
-        for cell in self._cool_map.all_cells() + self._heat_map.all_cells():
+        for cell in chain(self._cool_map.all_cells(), self._heat_map.all_cells()):
             cell.confidence_score = 0.0
