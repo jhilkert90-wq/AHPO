@@ -30,7 +30,7 @@ async def async_setup_entry(
 class AhpoResetMapButton(ButtonEntity):
     _attr_should_poll = False
     _attr_has_entity_name = True
-    _attr_name = "Reset characteristic map"
+    _attr_name = "Reset characteristic maps"
     _attr_icon = "mdi:delete-sweep"
 
     def __init__(self, cool_map: CharacteristicMap, heat_map: CharacteristicMap, entry: ConfigEntry) -> None:
