@@ -32,8 +32,9 @@
           "confidence_age_halflife_days": "Data age half-life (days)",
           "settling_time_minutes": "Settling time after a setpoint change (minutes)",
           "averaging_time_minutes": "Averaging window duration (minutes)",
-          "charge_pump_step_percent": "Fine optimizer step size (%)",
-          "charge_pump_step_percent_coarse": "Coarse optimizer step size (%)",
+          "spread_controller_kp": "P-controller gain Kp (%/K)",
+          "spread_controller_deadband_k": "P-controller deadband (K)",
+          "spread_controller_max_step_percent": "Maximum P-controller step size (%)",
           "decision_log_enabled": "Enable decision logging"
         }
       }
@@ -72,8 +73,9 @@
           "confidence_age_halflife_days": "Data age half-life (days)",
           "settling_time_minutes": "Settling time after a setpoint change (minutes)",
           "averaging_time_minutes": "Averaging window duration (minutes)",
-          "charge_pump_step_percent": "Fine optimizer step size (%)",
-          "charge_pump_step_percent_coarse": "Coarse optimizer step size (%)",
+          "spread_controller_kp": "P-controller gain Kp (%/K)",
+          "spread_controller_deadband_k": "P-controller deadband (K)",
+          "spread_controller_max_step_percent": "Maximum P-controller step size (%)",
           "decision_log_enabled": "Enable decision logging"
         }
       }
