@@ -56,6 +56,7 @@ class AhpoCoordinator:
         phase_manager: PhaseManager,
         min_compressor_frequency: float = 20.0,
         min_charge_pump_speed: float = 15.0,
+        min_speed_step_percent: float = 0.0,
         settling_time_minutes: float | None = None,
         averaging_time_minutes: float | None = None,
         decision_logger: DecisionLogger | None = None,
@@ -66,6 +67,7 @@ class AhpoCoordinator:
         self.phase_manager = phase_manager
         self._min_compressor_frequency = min_compressor_frequency
         self._min_charge_pump_speed = min_charge_pump_speed
+        self._min_speed_step_percent = min_speed_step_percent
         self._detector = SteadyPeriodDetector(
             settling_minutes=settling_time_minutes,
             averaging_minutes=averaging_time_minutes,
@@ -194,6 +196,14 @@ class AhpoCoordinator:
 
         if result.phase is Phase.ACTIVE and result.proposed_charge_pump_speed is not None:
             proposed = result.proposed_charge_pump_speed
+            # Suppress writes that are smaller than the configured minimum step size.
+            if (
+                self._min_speed_step_percent > 0
+                and self._last_written_speed is not None
+                and abs(proposed - self._last_written_speed) < self._min_speed_step_percent
+            ):
+                self._notify_listeners()
+                return
             if proposed != self._last_written_speed:
                 # Log the decision before writing if the logger is active.
                 if self._decision_logger is not None:

@@ -47,6 +47,7 @@ OPT_SPREAD_CONTROLLER_DEADBAND_K = "spread_controller_deadband_k"
 OPT_SPREAD_CONTROLLER_MAX_STEP_PERCENT = "spread_controller_max_step_percent"
 OPT_MIN_COMPRESSOR_FREQUENCY_HZ = "min_compressor_frequency_hz"
 OPT_MIN_CHARGE_PUMP_SPEED_PERCENT = "min_charge_pump_speed_percent"
+OPT_MIN_SPEED_STEP_PERCENT = "min_speed_step_percent"
 OPT_DECISION_LOG_ENABLED = "decision_log_enabled"
 
 DEFAULT_OPTIONS: dict[str, float | bool] = {
@@ -61,6 +62,7 @@ DEFAULT_OPTIONS: dict[str, float | bool] = {
     OPT_SPREAD_CONTROLLER_MAX_STEP_PERCENT: 5.0,
     OPT_MIN_COMPRESSOR_FREQUENCY_HZ: 20.0,
     OPT_MIN_CHARGE_PUMP_SPEED_PERCENT: 15.0,
+    OPT_MIN_SPEED_STEP_PERCENT: 0.0,
     OPT_DECISION_LOG_ENABLED: False,
 }
 

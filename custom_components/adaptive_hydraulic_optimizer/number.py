@@ -1,7 +1,7 @@
 """Number platform: live-adjustable confidence threshold and P-controller parameters."""
 from __future__ import annotations
 
-from homeassistant.components.number import NumberEntity
+from homeassistant.components.restore_state import RestoreNumber
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -25,10 +25,23 @@ async def async_setup_entry(
     ])
 
 
-class AhpoConfidenceThresholdNumber(NumberEntity):
-    """Confidence score a cell must reach before it is released for Phase B."""
+class _AhpoRestorableNumber(RestoreNumber):
+    """Base class that restores the last known numeric value after a HA restart."""
 
     _attr_should_poll = False
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        last_data = await self.async_get_last_number_data()
+        if last_data is not None and last_data.native_value is not None:
+            value = float(last_data.native_value)
+            if self._attr_native_min_value <= value <= self._attr_native_max_value:
+                await self.async_set_native_value(value)
+
+
+class AhpoConfidenceThresholdNumber(_AhpoRestorableNumber):
+    """Confidence score a cell must reach before it is released for Phase B."""
+
     _attr_has_entity_name = True
     _attr_name = "Confidence threshold"
     _attr_icon = "mdi:gauge"
@@ -48,10 +61,9 @@ class AhpoConfidenceThresholdNumber(NumberEntity):
         self.async_write_ha_state()
 
 
-class AhpoSpreadControllerKpNumber(NumberEntity):
+class AhpoSpreadControllerKpNumber(_AhpoRestorableNumber):
     """Proportional gain Kp (%/K) of the spread-error P-controller — tunable live."""
 
-    _attr_should_poll = False
     _attr_has_entity_name = True
     _attr_name = "Kp (aktiv)"
     _attr_icon = "mdi:knob"
@@ -72,10 +84,9 @@ class AhpoSpreadControllerKpNumber(NumberEntity):
         self.async_write_ha_state()
 
 
-class AhpoSpreadControllerDeadbandNumber(NumberEntity):
+class AhpoSpreadControllerDeadbandNumber(_AhpoRestorableNumber):
     """Deadband (K) of the spread-error P-controller — tunable live."""
 
-    _attr_should_poll = False
     _attr_has_entity_name = True
     _attr_name = "Totzone (Deadband)"
     _attr_icon = "mdi:minus-circle-outline"
