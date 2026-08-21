@@ -25,6 +25,7 @@
         "data": {
           "min_compressor_frequency_hz": "Minimum compressor frequency (Hz) — ignore samples below this",
           "min_charge_pump_speed_percent": "Minimum charge pump speed (%) — clamp output and learning to this floor",
+          "min_speed_step_percent": "Minimum charge pump speed step (%) — suppress changes smaller than this threshold",
           "confidence_threshold": "Confidence threshold to switch to active optimization (0–1)",
           "confidence_min_samples": "Minimum samples required for confidence",
           "confidence_max_spread_error_std": "Maximum spread-error standard deviation for full stability score (K)",
@@ -64,6 +65,7 @@
         "data": {
           "min_compressor_frequency_hz": "Minimum compressor frequency (Hz) — ignore samples below this",
           "min_charge_pump_speed_percent": "Minimum charge pump speed (%) — clamp output and learning to this floor",
+          "min_speed_step_percent": "Minimum charge pump speed step (%) — suppress changes smaller than this threshold",
           "confidence_threshold": "Confidence threshold to switch to active optimization (0–1)",
           "confidence_min_samples": "Minimum samples required for confidence",
           "confidence_max_spread_error_std": "Maximum spread-error standard deviation for full stability score (K)",
