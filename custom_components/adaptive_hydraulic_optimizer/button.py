@@ -14,11 +14,13 @@ from .entity_base import ahpo_device_info
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    characteristic_map: CharacteristicMap = hass.data[DOMAIN][entry.entry_id]["characteristic_map"]
+    entry_data = hass.data[DOMAIN][entry.entry_id]
+    cool_map: CharacteristicMap = entry_data["cool_map"]
+    heat_map: CharacteristicMap = entry_data["heat_map"]
     async_add_entities(
         [
-            AhpoResetMapButton(characteristic_map, entry),
-            AhpoResetConfidenceButton(characteristic_map, entry),
+            AhpoResetMapButton(cool_map, heat_map, entry),
+            AhpoResetConfidenceButton(cool_map, heat_map, entry),
         ]
     )
 
@@ -29,13 +31,15 @@ class AhpoResetMapButton(ButtonEntity):
     _attr_name = "Reset characteristic map"
     _attr_icon = "mdi:delete-sweep"
 
-    def __init__(self, characteristic_map: CharacteristicMap, entry: ConfigEntry) -> None:
-        self._characteristic_map = characteristic_map
+    def __init__(self, cool_map: CharacteristicMap, heat_map: CharacteristicMap, entry: ConfigEntry) -> None:
+        self._cool_map = cool_map
+        self._heat_map = heat_map
         self._attr_unique_id = f"{entry.entry_id}_reset_map"
         self._attr_device_info = ahpo_device_info(entry)
 
     async def async_press(self) -> None:
-        self._characteristic_map.clear()
+        self._cool_map.clear()
+        self._heat_map.clear()
 
 
 class AhpoResetConfidenceButton(ButtonEntity):
@@ -44,11 +48,12 @@ class AhpoResetConfidenceButton(ButtonEntity):
     _attr_name = "Reset confidence"
     _attr_icon = "mdi:gauge-empty"
 
-    def __init__(self, characteristic_map: CharacteristicMap, entry: ConfigEntry) -> None:
-        self._characteristic_map = characteristic_map
+    def __init__(self, cool_map: CharacteristicMap, heat_map: CharacteristicMap, entry: ConfigEntry) -> None:
+        self._cool_map = cool_map
+        self._heat_map = heat_map
         self._attr_unique_id = f"{entry.entry_id}_reset_confidence"
         self._attr_device_info = ahpo_device_info(entry)
 
     async def async_press(self) -> None:
-        for cell in self._characteristic_map.all_cells():
+        for cell in self._cool_map.all_cells() + self._heat_map.all_cells():
             cell.confidence_score = 0.0

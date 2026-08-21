@@ -1,7 +1,7 @@
 """Number platform: live-adjustable confidence threshold and P-controller parameters."""
 from __future__ import annotations
 
-from homeassistant.components.restore_state import RestoreNumber
+from homeassistant.components.number import RestoreNumber
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
