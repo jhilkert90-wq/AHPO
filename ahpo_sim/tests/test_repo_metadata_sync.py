@@ -143,5 +143,6 @@ def test_sync_metadata_ignores_pycache_artifacts(tmp_path: Path) -> None:
 
     _write(tmp_path / "scripts/__pycache__/sync_repo_metadata.cpython-312.pyc", "bytecode")
     _write(tmp_path / "ahpo_sim/__pycache__/module.cpython-312.pyc", "bytecode")
+    _write(tmp_path / "scripts/helper.pyo", "bytecode")
 
     assert sync_metadata(tmp_path, check=True, now=now) is True

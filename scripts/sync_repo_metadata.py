@@ -238,6 +238,8 @@ def render_synced_files(paths: SyncPaths, version: str, synced_at: str, changelo
 def projected_file_hashes(current_hashes: dict[str, str], rendered_files: dict[str, str]) -> dict[str, str]:
     projected = dict(current_hashes)
     for relative_path, content in rendered_files.items():
+        # Only tracked inputs participate in the fingerprint. Generated outputs such as
+        # CHANGELOG.md, VERSION, and the state file are validated separately via content checks.
         if relative_path in projected:
             projected[relative_path] = hashlib.sha256(content.encode("utf-8")).hexdigest()
     return projected
