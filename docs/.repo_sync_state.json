@@ -2,7 +2,7 @@
   "file_hashes": {
     ".github/workflows/ci.yml": "30aa953322eacd1eb1693d3f3abe6c4781a931dae6eba92b307beea488e3df87",
     "Adaptive hydraulic pump optimizer v2.md": "384229280721b0b61ec52f6b8fedc682749e1b2a74ee90c28edc750ccde47100",
-    "README.md": "aee842e680e8286b09aef519080f30cc0281d933237690b2d55a2121d4a9ed2d",
+    "README.md": "673ac1df735cc108a922b03d0ab08b0df7fe6fb28dc58b51d5ddaa6e798b163f",
     "ahpo_sim/__init__.py": "bfb185b580c15b357f9ea828220c19c51de1e3d2060b16a4ad7f35ab38774183",
     "ahpo_sim/characteristic_map.py": "eb091a7d26611fb4485d6a9f5ebb7706fd42bba372a3cb45a215ced41fcbbb29",
     "ahpo_sim/config.py": "1c32f786cb676ee21a643b63baa76ff18e14b7acb3e41102a19be0e8016bada0",
@@ -22,7 +22,7 @@
     "ahpo_sim/tests/test_interpolation.py": "e1c451d17855296f36f098d1177a80038b16398e84d0a887910f506e4537142e",
     "ahpo_sim/tests/test_optimizer.py": "9b81b7c0782e9a9937f6173c639c78d1be8fbf2f71cce1a24c82b34ec6975cdf",
     "ahpo_sim/tests/test_phase_manager.py": "77e6f141f29e01d6b5cdf914d7b73d7043dc77d7937f68b22b410b1197328bf4",
-    "ahpo_sim/tests/test_repo_metadata_sync.py": "22b4da8776a88237104fb9939898946285c751a55b00bd1bab283e781c67c882",
+    "ahpo_sim/tests/test_repo_metadata_sync.py": "6075744347cff642461f8d4389cd64f02c4b7444fd89478d4f10906eca68d50d",
     "ahpo_sim/tests/test_simulate.py": "348a444d356ee578f06528819912bb9b20c743e319be8d19b06db7db6f66a602",
     "ahpo_sim/tests/test_timing.py": "132070108e0a7f85465cb22e4487deb1ffc3da804a1945c965c9e4f932891586",
     "ahpo_sim/timing.py": "a83e0e4efdafdbac10109a5c8d128b9444909c94030eaa424e170c4e2d0ea98d",
@@ -42,7 +42,7 @@
     "custom_components/adaptive_hydraulic_optimizer/diagnostics.py": "21dd930f81ffa806bbb5dd8d5ed1b2b76002690d822f8a8877e9c3d4dd572483",
     "custom_components/adaptive_hydraulic_optimizer/entity_base.py": "dbcec084d55ed6e3a895b6c4f52db2180d04bf5ca45e1e631ee262cd2881634b",
     "custom_components/adaptive_hydraulic_optimizer/learning.py": "6d8e98579224cacf3ff4d8b3eaf01d1a1ded536182edcc774167c0790da01164",
-    "custom_components/adaptive_hydraulic_optimizer/manifest.json": "92213401be74ca333a0fbacafc10cab8a6d8ca26a6ab0a9335d0892efba9d58f",
+    "custom_components/adaptive_hydraulic_optimizer/manifest.json": "05e8e3cdf368f8a569f78d9730319e7f94e0a8f5476c24d2de1ae1348c6998df",
     "custom_components/adaptive_hydraulic_optimizer/number.py": "281739a8e75cb33cf6c4ce233f7bea7a62285b0f7a16f7dc9ec99ece4d645377",
     "custom_components/adaptive_hydraulic_optimizer/select.py": "d19c6f386be6a9f8dbefc176a5f4415fd46ac37e45d4e87922402a9b418859db",
     "custom_components/adaptive_hydraulic_optimizer/sensor.py": "9aa6ec55ca791a4adbab05085638c03401a36acb58a97472805795964080f292",
@@ -52,11 +52,11 @@
     "custom_components/adaptive_hydraulic_optimizer/strings.json": "91ac6214ac9373e23532982ea1b121a843a6b18ff18cd7cf54b6132fae7594e4",
     "custom_components/adaptive_hydraulic_optimizer/translations/en.json": "91ac6214ac9373e23532982ea1b121a843a6b18ff18cd7cf54b6132fae7594e4",
     "hacs.json": "38fb0885ce1c8291e57e5de2a047809227a744f3e53f5847f8f59f3257a0c0b0",
-    "pyproject.toml": "bfbb88f2ad14936045bbc90414ea2fa8e07e2359296be6da82362e33ce4bd679",
+    "pyproject.toml": "9821aac6f288405a2a7f3f4b069a4e7688a9d0e99170533a84fba044e27380cf",
     "scripts/__init__.py": "82349a1bc285efec0e2dc23bcbc114bb4d8fb8115d822c1447db109bd426c72e",
-    "scripts/sync_repo_metadata.py": "0e86dfcde5faff25403027b60b91b3edf83caae3904a3faca5d936de392cb087"
+    "scripts/sync_repo_metadata.py": "105cb46732f6ec6849dba4819957bf80815a352d702fd425930ee5b5de838b15"
   },
-  "fingerprint": "15ddf182ace791d3ca8e205622a86c9b8849333860f8a66787eded7eaeaefecd",
-  "synced_at": "2026-09-27T14:20:29.303345+00:00",
-  "version": "2026.09.1"
+  "fingerprint": "3cab2ab18263b5e94655a35cf21e5315dc784d98d108609f5830ff1d86edd515",
+  "synced_at": "2026-09-27T14:21:37.359383+00:00",
+  "version": "2026.09.2"
 }

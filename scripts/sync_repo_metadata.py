@@ -42,8 +42,7 @@ MEMORY_BANK_SYNC_PATTERN = re.compile(
     flags=re.MULTILINE,
 )
 PYPROJECT_VERSION_PATTERN = re.compile(
-    r'(^version = ")([^"]+)(")$',
-    flags=re.MULTILINE,
+    r'(?ms)(^\[project\]\n(?:(?!^\[).*\n)*?^version = ")([^"]+)(")',
 )
 MANIFEST_VERSION_PATTERN = re.compile(
     r'(^  "version": ")([^"]+)(")$',
