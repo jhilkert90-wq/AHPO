@@ -18,6 +18,8 @@ validated on a real system). See `Adaptive hydraulic pump optimizer v2.md` for t
 project spec, and `ahpo_sim/` for the historical-data simulator used to design and test
 the optimization core before wiring it into Home Assistant.
 
+Repository version: `2026.09.2` (tracked in `/VERSION`, `/CHANGELOG.md`, and `/docs/MEMORY_BANK.md`)
+
 ## Two parts of this repository
 
 - **`ahpo_sim/`** - standalone Python simulator (no Home Assistant dependency) that
@@ -47,7 +49,8 @@ the optimization core before wiring it into Home Assistant.
    - Primary flow/return temperature, primary flow rate
    - **Secondary flow/return temperature** (buffer/separator secondary side — required for spread-error calculation)
    - Total electrical power, compressor frequency, outdoor temperature
-   - Charge pump speed (must be a writable `number` or `input_number` entity)
+   - Charge pump speed — measured input (**required**; sensor/number/input_number)
+   - Charge pump speed — writable setpoint (**optional**; `number` or `input_number`)
    - Operating mode (`heat` or `cool` text state only), error status
 
 ### Operating mode requirement
@@ -98,11 +101,17 @@ numeric mode codes mapped in `ahpo_sim/config.py`); rows with other mode values 
 
 ## Development
 
-```powershell
+Use the same install/test path as CI:
+
+```bash
 python -m venv .venv
-.venv\Scripts\pip install -e .[dev]
+source .venv/bin/activate
+pip install -e .[dev]
 pytest -q
+python scripts/sync_repo_metadata.py
 ```
+
+On Windows PowerShell, activate the environment with `.venv\Scripts\Activate.ps1`.
 
 ## License
 

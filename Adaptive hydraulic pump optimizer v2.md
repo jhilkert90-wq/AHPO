@@ -4,7 +4,7 @@
 
 ### Version
 
-Projektentwurf V1.1 (ergänzt: Betriebsphasen, InfluxDB-Mapping)
+Projektentwurf V1.2 (an aktuellen Spread-Error-Stand und Home-Assistant-Mapping angepasst)
 
 ---
 
@@ -28,11 +28,14 @@ Nicht PI- oder PID-Regelung.
 
 Sondern:
 
-**Online-Optimierung des Systemwirkungsgrades (COP/EER).**
+**Online-Optimierung des Spreizungsfehlers über der hydraulischen Weiche.**
 
 Das Kennfeld liefert lediglich einen optimalen Startwert.
 
 Während des Betriebs wird kontinuierlich weiter optimiert.
+
+COP/EER wird weiterhin berechnet und protokolliert, ist aber nur noch eine Begleitgröße und
+nicht mehr die eigentliche Optimierungszielgröße.
 
 ---
 
@@ -53,7 +56,10 @@ AHPO kennt zwei grundsätzlich unterschiedliche Betriebsphasen. Der Wechsel zwis
 
 - AHPO übernimmt die Stellgröße (Ladepumpendrehzahl) aktiv und führt Hill-Climbing wie beschrieben durch.
 - Übergang von Phase A zu Phase B kann granular pro Kennfeldzelle erfolgen (Zelle wird erst aktiv optimiert, sobald ihr Confidence Score einen konfigurierbaren Schwellwert überschreitet) oder global per Service/Konfiguration umgeschaltet werden.
-- Empfehlung: pro-Zelle-Freigabe als Standard, zusätzlich ein globaler manueller Override (Service `aktive_phase_aktivieren` / `aktive_phase_deaktivieren`), damit der Nutzer den Umstieg auch erzwingen oder komplett im Shadow Mode bleiben kann.
+- Empfehlung: pro-Zelle-Freigabe als Standard, zusätzlich ein globaler manueller Override
+  über die Select-Entität `Phase override` oder den Service `set_phase_override`
+  (`automatic` / `passive` / `active`), damit der Nutzer den Umstieg auch erzwingen oder
+  komplett im Shadow Mode bleiben kann.
 - Sicherheits-Fallback: Bei Sensorausfall, Fehlerstatus der Wärmepumpe oder Verlust der Schreibberechtigung auf die Pumpenentität fällt AHPO automatisch zurück in Phase A (passiv), statt mit veralteten/fehlerhaften Daten aktiv zu optimieren.
 - Neue Entität/Sensor: `Betriebsphase` (Werte: `passiv_lernend`, `aktiv_optimierend`, pro betroffene Kennfeldzelle oder global) — ergänzt die bereits vorgesehene Liste an Ausgabegrößen.
 
@@ -61,11 +67,9 @@ AHPO kennt zwei grundsätzlich unterschiedliche Betriebsphasen. Der Wechsel zwis
 
 # Hauptziel
 
-Maximierung des System-COP (Heizbetrieb)
+Minimierung des signed spread error
 
-bzw.
-
-Maximierung des System-EER (Kühlbetrieb)
+`e = ΔT_primary − ΔT_secondary`
 
 unter Berücksichtigung der aktuellen Betriebsbedingungen.
 
@@ -117,9 +121,12 @@ Pflicht:
 * Verdichterfrequenz
 * Außentemperatur
 * Ladepumpendrehzahl (Ist)
+* Sekundär Vorlauf
+* Sekundär Rücklauf
 
 Optional:
 
+* Ladepumpendrehzahl (Sollwert / schreibbare Entität für Phase B)
 * Betriebsmodus (Heizen/Kühlen)
 * Primärpumpe Ein/Aus
 * Verdichterstatus
@@ -133,6 +140,9 @@ Optional:
 Die Integration berechnet den COP bzw. EER selbstständig.
 
 Keine externe Berechnung notwendig.
+
+Die Kennfeldbewertung und der Regler verwenden jedoch den signed spread error; COP/EER bleibt
+eine geloggte Diagnosegröße.
 
 Berechnung:
 
