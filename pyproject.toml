@@ -1,6 +1,6 @@
 [project]
 name = "ahpo-sim"
-version = "2026.09.6"
+version = "2026.09.1"
 description = "Adaptive Hydraulic Pump Optimizer - Phase 1 historical data simulation"
 requires-python = ">=3.10"
 dependencies = [

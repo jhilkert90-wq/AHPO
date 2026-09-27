@@ -104,6 +104,20 @@ def tracked_files(root: Path) -> list[Path]:
     return sorted(paths)
 
 
+def sanitize_file_hashes(file_hashes: dict[str, str]) -> dict[str, str]:
+    sanitized: dict[str, str] = {}
+    for relative_path, digest in file_hashes.items():
+        path = Path(relative_path)
+        if relative_path in GENERATED_FILES:
+            continue
+        if any(part in IGNORED_TRACKED_PARTS for part in path.parts):
+            continue
+        if path.suffix in IGNORED_TRACKED_SUFFIXES:
+            continue
+        sanitized[relative_path] = digest
+    return sanitized
+
+
 def file_hash(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -268,8 +282,8 @@ def sync_metadata(root: Path, check: bool = False, now: datetime | None = None) 
     current_time = now or datetime.now(UTC)
     paths = build_paths(root)
     state = read_state(paths.state) or {}
-    previous_hashes = state.get("file_hashes", {})
-    current_hashes = collect_file_hashes(root)
+    previous_hashes = sanitize_file_hashes(state.get("file_hashes", {}))
+    current_hashes = sanitize_file_hashes(collect_file_hashes(root))
     current_fingerprint = fingerprint_for(current_hashes)
     stored_fingerprint = state.get("fingerprint")
     current_version = state.get("version")
