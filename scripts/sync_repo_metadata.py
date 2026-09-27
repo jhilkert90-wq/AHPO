@@ -146,11 +146,11 @@ def read_version_file(path: Path) -> str | None:
     return version or None
 
 
-def resolve_current_version(state: dict, paths: SyncPaths) -> tuple[str | None, bool]:
+def resolve_current_version(state: dict, paths: SyncPaths) -> tuple[str | None, bool, str | None, str | None]:
     state_version = state.get("version")
     file_version = read_version_file(paths.version)
     mismatch = bool(state_version and file_version and state_version != file_version)
-    return (file_version or state_version, mismatch)
+    return (file_version or state_version, mismatch, state_version, file_version)
 
 
 def resolve_synced_at(paths: SyncPaths, fallback: str) -> str:
@@ -307,8 +307,11 @@ def sync_metadata(root: Path, check: bool = False, now: datetime | None = None) 
     current_hashes = sanitize_file_hashes(collect_file_hashes(root))
     current_fingerprint = fingerprint_for(current_hashes)
     stored_fingerprint = state.get("fingerprint")
-    current_version, version_mismatch = resolve_current_version(state, paths)
-    mismatch_message = "VERSION file and docs/.repo_sync_state.json version do not match."
+    current_version, version_mismatch, state_version, file_version = resolve_current_version(state, paths)
+    mismatch_message = (
+        "VERSION file and docs/.repo_sync_state.json version do not match. "
+        f"VERSION={file_version!r}, state={state_version!r}."
+    )
     if version_mismatch:
         if check:
             print(mismatch_message)
@@ -348,7 +351,6 @@ def sync_metadata(root: Path, check: bool = False, now: datetime | None = None) 
         stored_fingerprint is None
         and current_version
         and VERSION_PATTERN.fullmatch(current_version)
-        and not paths.state.exists()
     ):
         synced_at = resolve_synced_at(paths, current_time.isoformat())
         changelog_text = paths.changelog.read_text(encoding="utf-8") if paths.changelog.exists() else "# Change History\n"

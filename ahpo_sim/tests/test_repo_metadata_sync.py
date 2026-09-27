@@ -291,6 +291,41 @@ def test_sync_metadata_keeps_version_when_state_missing(tmp_path: Path) -> None:
     assert (tmp_path / "VERSION").read_text(encoding="utf-8").strip() == "2026.09.1"
 
 
+def test_sync_metadata_keeps_version_with_incomplete_state(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "README.md",
+        "# Test Repo\n\nRepository version: `0.0.0` (tracked in `/VERSION`, `/CHANGELOG.md`, and `/docs/MEMORY_BANK.md`)\n",
+    )
+    _write(tmp_path / "Adaptive hydraulic pump optimizer v2.md", "# Spec\n")
+    _write(tmp_path / "pyproject.toml", '[project]\nname = "ahpo-sim"\nversion = "0.0.0"\n')
+    _write(
+        tmp_path / "custom_components/adaptive_hydraulic_optimizer/manifest.json",
+        '{\n  "domain": "adaptive_hydraulic_optimizer",\n  "name": "Adaptive Hydraulic Pump Optimizer",\n  "version": "0.0.0"\n}\n',
+    )
+    _write(tmp_path / "hacs.json", '{\n  "name": "Adaptive Hydraulic Pump Optimizer"\n}\n')
+    _write(tmp_path / ".github/workflows/ci.yml", "name: CI\n")
+    _write(tmp_path / "scripts/__init__.py", "")
+    _write(tmp_path / "scripts/sync_repo_metadata.py", 'print("placeholder")\n')
+    _write(tmp_path / "ahpo_sim/__init__.py", "")
+    _write(
+        tmp_path / "docs/MEMORY_BANK.md",
+        "# Memory Bank\n\n- Current repository version: 0.0.0\n- Last synchronized: pending\n",
+    )
+    _write(tmp_path / "VERSION", "0.0.0\n")
+    _write(tmp_path / "CHANGELOG.md", "# Change History\n")
+
+    now = datetime(2026, 9, 27, 14, 0, tzinfo=timezone.utc)
+    assert sync_metadata(tmp_path, now=now) is True
+
+    state_path = tmp_path / "docs/.repo_sync_state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state.pop("fingerprint", None)
+    state_path.write_text(json.dumps(state), encoding="utf-8")
+
+    assert sync_metadata(tmp_path, now=now) is True
+    assert (tmp_path / "VERSION").read_text(encoding="utf-8").strip() == "2026.09.1"
+
+
 def test_sync_metadata_check_fails_after_changelog_edit(tmp_path: Path) -> None:
     _write(
         tmp_path / "README.md",
