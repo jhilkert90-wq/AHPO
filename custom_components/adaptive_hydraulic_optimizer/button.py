@@ -38,6 +38,11 @@ class AhpoResetMapButton(ButtonEntity):
         self._heat_map = heat_map
         self._attr_unique_id = f"{entry.entry_id}_reset_map"
         self._attr_device_info = ahpo_device_info(entry)
+        self._attr_last_pressed = None
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        self._attr_last_pressed = None
 
     async def async_press(self) -> None:
         self._cool_map.clear()
@@ -55,6 +60,11 @@ class AhpoResetConfidenceButton(ButtonEntity):
         self._heat_map = heat_map
         self._attr_unique_id = f"{entry.entry_id}_reset_confidence"
         self._attr_device_info = ahpo_device_info(entry)
+        self._attr_last_pressed = None
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        self._attr_last_pressed = None
 
     async def async_press(self) -> None:
         for cell in chain(self._cool_map.all_cells(), self._heat_map.all_cells()):
