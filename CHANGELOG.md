@@ -1,5 +1,12 @@
 # Change History
 
+## 2026.09.9 - 2026-09-27
+- Repository bookkeeping synchronized after tracked repository changes.
+
+### Updated
+- `.github/workflows/ci.yml`
+
+
 ## 2026.09.8 - 2026-09-27
 - Repository bookkeeping synchronized after tracked repository changes.
 

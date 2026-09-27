@@ -32,4 +32,4 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
-          ignore: brands,description,license,topics
+          ignore: "brands description license topics"

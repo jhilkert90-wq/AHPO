@@ -18,7 +18,7 @@ validated on a real system). See `Adaptive hydraulic pump optimizer v2.md` for t
 project spec, and `ahpo_sim/` for the historical-data simulator used to design and test
 the optimization core before wiring it into Home Assistant.
 
-Repository version: `2026.09.8` (tracked in `/VERSION`, `/CHANGELOG.md`, and `/docs/MEMORY_BANK.md`)
+Repository version: `2026.09.9` (tracked in `/VERSION`, `/CHANGELOG.md`, and `/docs/MEMORY_BANK.md`)
 
 ## Two parts of this repository
 
