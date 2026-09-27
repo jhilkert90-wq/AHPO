@@ -6,7 +6,7 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 TRACKED_ROOTS = (
@@ -137,6 +137,20 @@ def read_state(path: Path) -> dict | None:
     if not path.exists():
         return None
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def read_version_file(path: Path) -> str | None:
+    if not path.exists():
+        return None
+    version = path.read_text(encoding="utf-8").strip()
+    return version or None
+
+
+def resolve_current_version(state: dict, paths: SyncPaths) -> tuple[str | None, bool]:
+    state_version = state.get("version")
+    file_version = read_version_file(paths.version)
+    mismatch = bool(state_version and file_version and state_version != file_version)
+    return (file_version or state_version, mismatch)
 
 
 def next_version(previous_version: str | None, now: datetime) -> str:
@@ -278,17 +292,26 @@ def file_content_matches(root: Path, rendered_files: dict[str, str], expected_st
 
 
 def sync_metadata(root: Path, check: bool = False, now: datetime | None = None) -> bool:
-    current_time = now or datetime.now(UTC)
+    current_time = now or datetime.now(timezone.utc)
     paths = build_paths(root)
     state = read_state(paths.state) or {}
     previous_hashes = sanitize_file_hashes(state.get("file_hashes", {}))
     current_hashes = sanitize_file_hashes(collect_file_hashes(root))
     current_fingerprint = fingerprint_for(current_hashes)
     stored_fingerprint = state.get("fingerprint")
-    current_version = state.get("version")
+    current_version, version_mismatch = resolve_current_version(state, paths)
+    if version_mismatch and check:
+        return False
 
     if stored_fingerprint == current_fingerprint and current_version:
-        changelog_text = paths.changelog.read_text(encoding="utf-8") if paths.changelog.exists() else "# Change History\n"
+        changelog_text = state.get("changelog")
+        if not isinstance(changelog_text, str):
+            changelog_text = (
+                paths.changelog.read_text(encoding="utf-8")
+                if paths.changelog.exists()
+                else "# Change History\n"
+            )
+        changelog_text = changelog_text.rstrip() + "\n"
         rendered_files = render_synced_files(
             paths,
             current_version,
@@ -301,6 +324,7 @@ def sync_metadata(root: Path, check: bool = False, now: datetime | None = None) 
             "fingerprint": fingerprint_for(final_hashes),
             "synced_at": state.get("synced_at", current_time.isoformat()),
             "version": current_version,
+            "changelog": changelog_text,
         }
         if check:
             return file_content_matches(root, rendered_files, expected_state)
@@ -319,6 +343,7 @@ def sync_metadata(root: Path, check: bool = False, now: datetime | None = None) 
         "fingerprint": fingerprint_for(final_hashes),
         "synced_at": synced_at,
         "version": new_version,
+        "changelog": changelog_text.rstrip() + "\n",
     }
     if check:
         return False

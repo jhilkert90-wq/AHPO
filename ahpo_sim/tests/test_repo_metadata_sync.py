@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from scripts.sync_repo_metadata import classify_changes, next_version, sync_metadata
@@ -13,7 +13,7 @@ def _write(path: Path, content: str) -> None:
 
 
 def test_next_version_increments_within_month() -> None:
-    now = datetime(2026, 9, 27, tzinfo=UTC)
+    now = datetime(2026, 9, 27, tzinfo=timezone.utc)
     assert next_version("2026.09.2", now) == "2026.09.3"
     assert next_version("2026.08.5", now) == "2026.09.1"
     assert next_version(None, now) == "2026.09.1"
@@ -63,7 +63,7 @@ def test_sync_metadata_updates_repo_files(tmp_path: Path) -> None:
     _write(tmp_path / "VERSION", "0.0.0\n")
     _write(tmp_path / "CHANGELOG.md", "# Change History\n")
 
-    now = datetime(2026, 9, 27, 14, 0, tzinfo=UTC)
+    now = datetime(2026, 9, 27, 14, 0, tzinfo=timezone.utc)
     assert sync_metadata(tmp_path, now=now) is True
 
     version = (tmp_path / "VERSION").read_text(encoding="utf-8").strip()
@@ -109,7 +109,7 @@ def test_sync_metadata_check_fails_after_tracked_change(tmp_path: Path) -> None:
     _write(tmp_path / "VERSION", "0.0.0\n")
     _write(tmp_path / "CHANGELOG.md", "# Change History\n")
 
-    now = datetime(2026, 9, 27, 14, 0, tzinfo=UTC)
+    now = datetime(2026, 9, 27, 14, 0, tzinfo=timezone.utc)
     assert sync_metadata(tmp_path, now=now) is True
 
     readme_path = tmp_path / "README.md"
@@ -144,7 +144,7 @@ def test_sync_metadata_ignores_pycache_artifacts(tmp_path: Path) -> None:
     _write(tmp_path / "VERSION", "0.0.0\n")
     _write(tmp_path / "CHANGELOG.md", "# Change History\n")
 
-    now = datetime(2026, 9, 27, 14, 0, tzinfo=UTC)
+    now = datetime(2026, 9, 27, 14, 0, tzinfo=timezone.utc)
     assert sync_metadata(tmp_path, now=now) is True
 
     _write(tmp_path / "scripts/__pycache__/sync_repo_metadata.cpython-312.pyc", "bytecode")
@@ -177,7 +177,7 @@ def test_sync_metadata_filters_generated_paths_from_previous_state(tmp_path: Pat
     _write(tmp_path / "VERSION", "0.0.0\n")
     _write(tmp_path / "CHANGELOG.md", "# Change History\n")
 
-    now = datetime(2026, 9, 27, 14, 0, tzinfo=UTC)
+    now = datetime(2026, 9, 27, 14, 0, tzinfo=timezone.utc)
     assert sync_metadata(tmp_path, now=now) is True
 
     state_path = tmp_path / "docs/.repo_sync_state.json"
@@ -217,9 +217,77 @@ def test_sync_metadata_check_fails_after_generated_version_edit(tmp_path: Path) 
     _write(tmp_path / "VERSION", "0.0.0\n")
     _write(tmp_path / "CHANGELOG.md", "# Change History\n")
 
-    now = datetime(2026, 9, 27, 14, 0, tzinfo=UTC)
+    now = datetime(2026, 9, 27, 14, 0, tzinfo=timezone.utc)
     assert sync_metadata(tmp_path, now=now) is True
 
     _write(tmp_path / "VERSION", "2099.01.1\n")
+
+    assert sync_metadata(tmp_path, check=True, now=now) is False
+
+
+def test_sync_metadata_uses_version_file_when_state_missing(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "README.md",
+        "# Test Repo\n\nRepository version: `0.0.0` (tracked in `/VERSION`, `/CHANGELOG.md`, and `/docs/MEMORY_BANK.md`)\n",
+    )
+    _write(tmp_path / "Adaptive hydraulic pump optimizer v2.md", "# Spec\n")
+    _write(tmp_path / "pyproject.toml", '[project]\nname = "ahpo-sim"\nversion = "0.0.0"\n')
+    _write(
+        tmp_path / "custom_components/adaptive_hydraulic_optimizer/manifest.json",
+        '{\n  "domain": "adaptive_hydraulic_optimizer",\n  "name": "Adaptive Hydraulic Pump Optimizer",\n  "version": "0.0.0"\n}\n',
+    )
+    _write(tmp_path / "hacs.json", '{\n  "name": "Adaptive Hydraulic Pump Optimizer"\n}\n')
+    _write(tmp_path / ".github/workflows/ci.yml", "name: CI\n")
+    _write(tmp_path / "scripts/__init__.py", "")
+    _write(tmp_path / "scripts/sync_repo_metadata.py", 'print("placeholder")\n')
+    _write(tmp_path / "ahpo_sim/__init__.py", "")
+    _write(
+        tmp_path / "docs/MEMORY_BANK.md",
+        "# Memory Bank\n\n- Current repository version: 0.0.0\n- Last synchronized: pending\n",
+    )
+    _write(tmp_path / "VERSION", "0.0.0\n")
+    _write(tmp_path / "CHANGELOG.md", "# Change History\n")
+
+    now = datetime(2026, 9, 27, 14, 0, tzinfo=timezone.utc)
+    assert sync_metadata(tmp_path, now=now) is True
+
+    (tmp_path / "docs/.repo_sync_state.json").unlink()
+    _write(tmp_path / "scripts/sync_repo_metadata.py", 'print("changed")\n')
+
+    assert sync_metadata(tmp_path, now=now) is True
+    assert (tmp_path / "VERSION").read_text(encoding="utf-8").strip() == "2026.09.2"
+
+
+def test_sync_metadata_check_fails_after_changelog_edit(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "README.md",
+        "# Test Repo\n\nRepository version: `0.0.0` (tracked in `/VERSION`, `/CHANGELOG.md`, and `/docs/MEMORY_BANK.md`)\n",
+    )
+    _write(tmp_path / "Adaptive hydraulic pump optimizer v2.md", "# Spec\n")
+    _write(tmp_path / "pyproject.toml", '[project]\nname = "ahpo-sim"\nversion = "0.0.0"\n')
+    _write(
+        tmp_path / "custom_components/adaptive_hydraulic_optimizer/manifest.json",
+        '{\n  "domain": "adaptive_hydraulic_optimizer",\n  "name": "Adaptive Hydraulic Pump Optimizer",\n  "version": "0.0.0"\n}\n',
+    )
+    _write(tmp_path / "hacs.json", '{\n  "name": "Adaptive Hydraulic Pump Optimizer"\n}\n')
+    _write(tmp_path / ".github/workflows/ci.yml", "name: CI\n")
+    _write(tmp_path / "scripts/__init__.py", "")
+    _write(tmp_path / "scripts/sync_repo_metadata.py", 'print("placeholder")\n')
+    _write(tmp_path / "ahpo_sim/__init__.py", "")
+    _write(
+        tmp_path / "docs/MEMORY_BANK.md",
+        "# Memory Bank\n\n- Current repository version: 0.0.0\n- Last synchronized: pending\n",
+    )
+    _write(tmp_path / "VERSION", "0.0.0\n")
+    _write(tmp_path / "CHANGELOG.md", "# Change History\n")
+
+    now = datetime(2026, 9, 27, 14, 0, tzinfo=timezone.utc)
+    assert sync_metadata(tmp_path, now=now) is True
+
+    changelog_path = tmp_path / "CHANGELOG.md"
+    changelog_path.write_text(
+        changelog_path.read_text(encoding="utf-8") + "\nManual changelog edit\n",
+        encoding="utf-8",
+    )
 
     assert sync_metadata(tmp_path, check=True, now=now) is False
