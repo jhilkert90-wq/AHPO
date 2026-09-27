@@ -1,5 +1,44 @@
 # Change History
 
+## 2026.09.4 - 2026-09-27
+- Repository bookkeeping synchronized after tracked repository changes.
+
+### Updated
+- `ahpo_sim/tests/test_repo_metadata_sync.py`
+- `scripts/sync_repo_metadata.py`
+
+### Removed
+- `ahpo_sim/__pycache__/__init__.cpython-312.pyc`
+- `ahpo_sim/__pycache__/characteristic_map.cpython-312.pyc`
+- `ahpo_sim/__pycache__/config.cpython-312.pyc`
+- `ahpo_sim/__pycache__/cop.cpython-312.pyc`
+- `ahpo_sim/__pycache__/influx_loader.cpython-312.pyc`
+- `ahpo_sim/__pycache__/interpolation.cpython-312.pyc`
+- `ahpo_sim/__pycache__/optimizer.cpython-312.pyc`
+- `ahpo_sim/__pycache__/phase_manager.cpython-312.pyc`
+- `ahpo_sim/__pycache__/simulate.cpython-312.pyc`
+- `ahpo_sim/__pycache__/timing.cpython-312.pyc`
+- `ahpo_sim/tests/__pycache__/__init__.cpython-312.pyc`
+- `ahpo_sim/tests/__pycache__/conftest.cpython-312-pytest-9.1.1.pyc`
+- `ahpo_sim/tests/__pycache__/test_characteristic_map.cpython-312-pytest-9.1.1.pyc`
+- `ahpo_sim/tests/__pycache__/test_cop.cpython-312-pytest-9.1.1.pyc`
+- `ahpo_sim/tests/__pycache__/test_influx_loader.cpython-312-pytest-9.1.1.pyc`
+- `ahpo_sim/tests/__pycache__/test_integration_button_entities.cpython-312-pytest-9.1.1.pyc`
+- `ahpo_sim/tests/__pycache__/test_interpolation.cpython-312-pytest-9.1.1.pyc`
+- `ahpo_sim/tests/__pycache__/test_optimizer.cpython-312-pytest-9.1.1.pyc`
+- `ahpo_sim/tests/__pycache__/test_phase_manager.cpython-312-pytest-9.1.1.pyc`
+- `ahpo_sim/tests/__pycache__/test_repo_metadata_sync.cpython-312-pytest-9.1.1.pyc`
+- `ahpo_sim/tests/__pycache__/test_simulate.cpython-312-pytest-9.1.1.pyc`
+- `ahpo_sim/tests/__pycache__/test_timing.cpython-312-pytest-9.1.1.pyc`
+- `custom_components/adaptive_hydraulic_optimizer/__pycache__/button.cpython-312.pyc`
+- `custom_components/adaptive_hydraulic_optimizer/__pycache__/const.cpython-312.pyc`
+- `custom_components/adaptive_hydraulic_optimizer/__pycache__/entity_base.cpython-312.pyc`
+- `custom_components/adaptive_hydraulic_optimizer/core/__pycache__/__init__.cpython-312.pyc`
+- `custom_components/adaptive_hydraulic_optimizer/core/__pycache__/characteristic_map.cpython-312.pyc`
+- `scripts/__pycache__/__init__.cpython-312.pyc`
+- `scripts/__pycache__/sync_repo_metadata.cpython-312.pyc`
+
+
 ## 2026.09.3 - 2026-09-27
 - Repository bookkeeping synchronized after tracked repository changes.
 

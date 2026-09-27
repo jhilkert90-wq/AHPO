@@ -26,6 +26,8 @@ GENERATED_FILES = {
     "docs/.repo_sync_state.json",
     "docs/MEMORY_BANK.md",
 }
+IGNORED_TRACKED_PARTS = {"__pycache__"}
+IGNORED_TRACKED_SUFFIXES = {".pyc", ".pyo"}
 
 README_VERSION_PATTERN = re.compile(
     r"(^Repository version:\s*`)([^`]+)(`.*$)",
@@ -90,12 +92,14 @@ def tracked_files(root: Path) -> list[Path]:
                 if not path.is_file():
                     continue
                 rel = path.relative_to(root).as_posix()
-                if rel in GENERATED_FILES:
+                if rel in GENERATED_FILES or any(part in IGNORED_TRACKED_PARTS for part in path.parts):
+                    continue
+                if path.suffix in IGNORED_TRACKED_SUFFIXES:
                     continue
                 paths.append(path)
         elif absolute.is_file():
             rel = absolute.relative_to(root).as_posix()
-            if rel not in GENERATED_FILES:
+            if rel not in GENERATED_FILES and absolute.suffix not in IGNORED_TRACKED_SUFFIXES:
                 paths.append(absolute)
     return sorted(paths)
 
