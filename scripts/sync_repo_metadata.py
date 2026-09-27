@@ -300,8 +300,10 @@ def sync_metadata(root: Path, check: bool = False, now: datetime | None = None) 
     current_fingerprint = fingerprint_for(current_hashes)
     stored_fingerprint = state.get("fingerprint")
     current_version, version_mismatch = resolve_current_version(state, paths)
-    if version_mismatch and check:
-        return False
+    if version_mismatch:
+        if check:
+            return False
+        raise ValueError("VERSION file and docs/.repo_sync_state.json version do not match.")
 
     if stored_fingerprint == current_fingerprint and current_version:
         changelog_text = state.get("changelog")

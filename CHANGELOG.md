@@ -1,5 +1,13 @@
 # Change History
 
+## 2026.09.3 - 2026-09-27
+- Repository bookkeeping synchronized after tracked repository changes.
+
+### Updated
+- `ahpo_sim/tests/test_repo_metadata_sync.py`
+- `scripts/sync_repo_metadata.py`
+
+
 ## 2026.09.2 - 2026-09-27
 - Repository bookkeeping synchronized after tracked repository changes.
 
