@@ -153,6 +153,14 @@ def resolve_current_version(state: dict, paths: SyncPaths) -> tuple[str | None, 
     return (file_version or state_version, mismatch)
 
 
+def resolve_synced_at(paths: SyncPaths, fallback: str) -> str:
+    if paths.memory_bank.exists():
+        match = MEMORY_BANK_SYNC_PATTERN.search(paths.memory_bank.read_text(encoding="utf-8"))
+        if match:
+            return match.group(2).strip()
+    return fallback
+
+
 def next_version(previous_version: str | None, now: datetime) -> str:
     prefix = f"{now.year:04d}.{now.month:02d}"
     if previous_version:
@@ -325,6 +333,25 @@ def sync_metadata(root: Path, check: bool = False, now: datetime | None = None) 
             "file_hashes": final_hashes,
             "fingerprint": fingerprint_for(final_hashes),
             "synced_at": state.get("synced_at", current_time.isoformat()),
+            "version": current_version,
+            "changelog": changelog_text,
+        }
+        if check:
+            return file_content_matches(root, rendered_files, expected_state)
+        if not file_content_matches(root, rendered_files, expected_state):
+            write_files(paths, rendered_files, expected_state)
+        return True
+
+    if stored_fingerprint is None and current_version and VERSION_PATTERN.fullmatch(current_version):
+        synced_at = resolve_synced_at(paths, current_time.isoformat())
+        changelog_text = paths.changelog.read_text(encoding="utf-8") if paths.changelog.exists() else "# Change History\n"
+        changelog_text = changelog_text.rstrip() + "\n"
+        rendered_files = render_synced_files(paths, current_version, synced_at, changelog_text)
+        final_hashes = projected_file_hashes(current_hashes, rendered_files)
+        expected_state = {
+            "file_hashes": final_hashes,
+            "fingerprint": fingerprint_for(final_hashes),
+            "synced_at": synced_at,
             "version": current_version,
             "changelog": changelog_text,
         }

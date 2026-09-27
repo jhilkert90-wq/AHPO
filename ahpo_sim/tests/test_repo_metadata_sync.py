@@ -259,7 +259,7 @@ def test_sync_metadata_raises_after_generated_version_edit_without_check(tmp_pat
         sync_metadata(tmp_path, now=now)
 
 
-def test_sync_metadata_uses_version_file_when_state_missing(tmp_path: Path) -> None:
+def test_sync_metadata_keeps_version_when_state_missing(tmp_path: Path) -> None:
     _write(
         tmp_path / "README.md",
         "# Test Repo\n\nRepository version: `0.0.0` (tracked in `/VERSION`, `/CHANGELOG.md`, and `/docs/MEMORY_BANK.md`)\n",
@@ -286,10 +286,9 @@ def test_sync_metadata_uses_version_file_when_state_missing(tmp_path: Path) -> N
     assert sync_metadata(tmp_path, now=now) is True
 
     (tmp_path / "docs/.repo_sync_state.json").unlink()
-    _write(tmp_path / "scripts/sync_repo_metadata.py", 'print("changed")\n')
 
     assert sync_metadata(tmp_path, now=now) is True
-    assert (tmp_path / "VERSION").read_text(encoding="utf-8").strip() == "2026.09.2"
+    assert (tmp_path / "VERSION").read_text(encoding="utf-8").strip() == "2026.09.1"
 
 
 def test_sync_metadata_check_fails_after_changelog_edit(tmp_path: Path) -> None:
