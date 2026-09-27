@@ -239,14 +239,13 @@ def projected_file_hashes(current_hashes: dict[str, str], rendered_files: dict[s
     return projected
 
 
-def write_files(root: Path, rendered_files: dict[str, str], state_payload: dict) -> None:
+def write_files(paths: SyncPaths, rendered_files: dict[str, str], state_payload: dict) -> None:
     for relative_path, content in rendered_files.items():
-        path = root / relative_path
+        path = paths.root / relative_path
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
-    state_path = root / "docs" / ".repo_sync_state.json"
-    state_path.parent.mkdir(parents=True, exist_ok=True)
-    state_path.write_text(json.dumps(state_payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    paths.state.parent.mkdir(parents=True, exist_ok=True)
+    paths.state.write_text(json.dumps(state_payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def file_content_matches(root: Path, rendered_files: dict[str, str], expected_state: dict) -> bool:
@@ -287,7 +286,7 @@ def sync_metadata(root: Path, check: bool = False, now: datetime | None = None) 
         if check:
             return file_content_matches(root, rendered_files, expected_state)
         if not file_content_matches(root, rendered_files, expected_state):
-            write_files(root, rendered_files, expected_state)
+            write_files(paths, rendered_files, expected_state)
         return True
 
     new_version = next_version(current_version, current_time)
@@ -304,7 +303,7 @@ def sync_metadata(root: Path, check: bool = False, now: datetime | None = None) 
     }
     if check:
         return False
-    write_files(root, rendered_files, expected_state)
+    write_files(paths, rendered_files, expected_state)
     return True
 
 
