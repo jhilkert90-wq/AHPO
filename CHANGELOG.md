@@ -1,5 +1,12 @@
 # Change History
 
+## 2026.09.7 - 2026-09-27
+- Repository bookkeeping synchronized after tracked repository changes.
+
+### Updated
+- `scripts/sync_repo_metadata.py`
+
+
 ## 2026.09.6 - 2026-09-27
 - Repository bookkeeping synchronized after tracked repository changes.
 

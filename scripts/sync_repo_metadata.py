@@ -299,14 +299,6 @@ def file_content_matches(root: Path, rendered_files: dict[str, str], expected_st
     return state_path.exists() and state_path.read_text(encoding="utf-8") == expected_state_text
 
 
-def generated_file_content_matches(root: Path, rendered_files: dict[str, str]) -> bool:
-    for relative_path, expected_content in rendered_files.items():
-        actual_path = root / relative_path
-        if not actual_path.exists() or actual_path.read_text(encoding="utf-8") != expected_content:
-            return False
-    return True
-
-
 def sync_metadata(root: Path, check: bool = False, now: datetime | None = None) -> bool:
     current_time = now or datetime.now(timezone.utc)
     paths = build_paths(root)
@@ -362,23 +354,19 @@ def sync_metadata(root: Path, check: bool = False, now: datetime | None = None) 
         changelog_text = paths.changelog.read_text(encoding="utf-8") if paths.changelog.exists() else "# Change History\n"
         changelog_text = changelog_text.rstrip() + "\n"
         rendered_files = render_synced_files(paths, current_version, synced_at, changelog_text)
-        if not generated_file_content_matches(root, rendered_files):
-            if check:
-                return False
-        else:
-            final_hashes = projected_file_hashes(current_hashes, rendered_files)
-            expected_state = {
-                "file_hashes": final_hashes,
-                "fingerprint": fingerprint_for(final_hashes),
-                "synced_at": synced_at,
-                "version": current_version,
-                "changelog": changelog_text,
-            }
-            if check:
-                return file_content_matches(root, rendered_files, expected_state)
-            if not file_content_matches(root, rendered_files, expected_state):
-                write_files(paths, rendered_files, expected_state)
-            return True
+        final_hashes = projected_file_hashes(current_hashes, rendered_files)
+        expected_state = {
+            "file_hashes": final_hashes,
+            "fingerprint": fingerprint_for(final_hashes),
+            "synced_at": synced_at,
+            "version": current_version,
+            "changelog": changelog_text,
+        }
+        if check:
+            return file_content_matches(root, rendered_files, expected_state)
+        if not file_content_matches(root, rendered_files, expected_state):
+            write_files(paths, rendered_files, expected_state)
+        return True
 
     new_version = next_version(current_version, current_time)
     changes = classify_changes(previous_hashes, current_hashes)
