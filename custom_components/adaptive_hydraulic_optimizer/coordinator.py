@@ -304,6 +304,11 @@ class AhpoCoordinator:
             return
         self._last_dhw_eval = now
 
+        if self._read_error_status():
+            self._dhw_controller.reset()
+            self._dhw_standby_written = None
+            return
+
         flow = self._read_float(CONF_PRIMARY_FLOW_TEMP)
         target = self._read_float(CONF_DHW_TARGET_TEMP)
         freq = self._read_float(CONF_COMPRESSOR_FREQUENCY)

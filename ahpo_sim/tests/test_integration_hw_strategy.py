@@ -88,7 +88,7 @@ def _make(hass):
     emap = {
         "primary_flow_temp": "s.flow", "dhw_target_temp": "s.target",
         "compressor_frequency": "s.freq", "charge_pump_speed_input": "s.speed",
-        "operating_mode": "s.mode",
+        "operating_mode": "s.mode", "error_status": "s.error",
     }
     c = coord_mod.AhpoCoordinator(hass, emap, None, None, dhw_standby_speed=30.0, dhw_control_interval_s=5.0)
     c.written = []
@@ -97,7 +97,10 @@ def _make(hass):
 
 
 def _set(hass, **kw):
-    names = {"flow": "s.flow", "target": "s.target", "freq": "s.freq", "speed": "s.speed", "mode": "s.mode"}
+    names = {
+        "flow": "s.flow", "target": "s.target", "freq": "s.freq",
+        "speed": "s.speed", "mode": "s.mode", "error": "s.error",
+    }
     for k, v in kw.items():
         hass.states.d[names[k]] = _State(str(v))
 
@@ -130,6 +133,33 @@ def test_hw_interval_and_missing_inputs() -> None:
     h.states.d["s.target"] = _State("unavailable")
     c._tick(T0 + timedelta(seconds=10))
     assert c.written == [45.0, 50.0]
+
+
+def test_error_status_and_pump_write_failure_suppress_dhw_writes() -> None:
+    for fault in ("error_status", "pump_write_error"):
+        h = _Hass()
+        c = _make(h)
+        _set(h, flow=55, target=50, freq=50, speed=40, mode="hw", error="off")
+        c._tick(T0)
+        assert c.written == [45.0]
+        assert c._dhw_controller.last_error_k is not None
+
+        _set(h, freq=0)
+        if fault == "error_status":
+            _set(h, error="on")
+        else:
+            c.pump_write_error = True
+        c._tick(T0 + timedelta(seconds=6))
+        assert c.written == [45.0]
+        assert c._dhw_controller.last_error_k is None
+
+        if fault == "error_status":
+            _set(h, error="off")
+        else:
+            c.pump_write_error = False
+        _set(h, freq=50)
+        c._tick(T0 + timedelta(seconds=12))
+        assert c.written == [45.0, 50.0]
 
 
 def test_leaving_hw_resets_state() -> None:
