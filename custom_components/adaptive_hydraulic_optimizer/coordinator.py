@@ -19,12 +19,15 @@ from .const import (
     CONF_CHARGE_PUMP_SPEED_INPUT,
     CONF_CHARGE_PUMP_SPEED_OUTPUT,
     CONF_COMPRESSOR_FREQUENCY,
+    CONF_DHW_TARGET_TEMP,
     CONF_ERROR_STATUS,
+    CONF_PRIMARY_FLOW_TEMP,
     CONF_OPERATING_MODE,
     CONF_OUTDOOR_TEMP,
     REQUIRED_ENTITY_KEYS,
 )
 from .core.cop import calculate_cop_for_row, calculate_delta_t, calculate_secondary_delta_t, calculate_spread_error_for_row, resolve_mode
+from .core.hw_strategy import DHW_MODE, DhwController, clamp_standby_speed, is_dhw_state
 from .core.phase_manager import Phase, PhaseManager
 from .core.timing import Observation, SteadyPeriodDetector
 from .decision_log import DecisionLogger, build_decision_entry
@@ -32,15 +35,18 @@ from .learning import LearningEngine, LearningResult
 
 _LOGGER = logging.getLogger(__name__)
 
-TICK_INTERVAL = timedelta(seconds=5)
+TICK_INTERVAL = timedelta(seconds=1)
+STANDARD_TICK_INTERVAL = timedelta(seconds=5)  # heat/cool cadence (unchanged)
 
 _VALID_MODE_STATES = frozenset({"heat", "cool"})
 
 
-def _resolve_operating_mode(raw_state: str | None) -> str | None:
-    """Normalise a raw operating-mode entity state to 'heat'/'cool', else None."""
+def _resolve_operating_mode(raw_state: str | None, dhw_state: str | None = None) -> str | None:
+    """Normalise a raw operating-mode entity state to 'heat'/'cool'/'dhw', else None."""
     if raw_state is None:
         return None
+    if is_dhw_state(raw_state, dhw_state):
+        return DHW_MODE
     mode = raw_state.strip().lower()
     return mode if mode in _VALID_MODE_STATES else None
 
@@ -60,6 +66,10 @@ class AhpoCoordinator:
         settling_time_minutes: float | None = None,
         averaging_time_minutes: float | None = None,
         decision_logger: DecisionLogger | None = None,
+        dhw_mode_state: str = "hw",
+        dhw_standby_speed: float = 30.0,
+        dhw_control_interval_s: float = 5.0,
+        dhw_controller: DhwController | None = None,
     ) -> None:
         self._hass = hass
         self._entity_map = entity_map
@@ -75,6 +85,14 @@ class AhpoCoordinator:
         from .core.timing import AVERAGING_TIME_MINUTES as _AVG_DEFAULT
         self._averaging_time_minutes: float = averaging_time_minutes if averaging_time_minutes is not None else _AVG_DEFAULT
         self._decision_logger = decision_logger
+        self._dhw_mode_state = dhw_mode_state
+        self.dhw_standby_speed = dhw_standby_speed
+        self.dhw_control_interval_s = dhw_control_interval_s
+        self._dhw_controller = dhw_controller or DhwController(min_speed=min_charge_pump_speed)
+        self._last_dhw_eval: datetime | None = None
+        self._last_standard_tick: datetime | None = None
+        self._dhw_standby_written: float | None = None
+        self.dhw_active = False
         self._last_written_speed: float | None = None
         self.last_result: LearningResult | None = None
         self.last_observation: Observation | None = None
@@ -123,9 +141,31 @@ class AhpoCoordinator:
 
     @callback
     def _async_on_tick(self, now: datetime) -> None:
+        # The timer runs at a fine resolution for HW; heat/cool keeps its 5 s cadence.
+        if self._read_operating_mode() != DHW_MODE:
+            if (
+                self._last_standard_tick is not None
+                and now - self._last_standard_tick < STANDARD_TICK_INTERVAL
+            ):
+                return
+            self._last_standard_tick = now
         self._tick(now)
 
     def _tick(self, now: datetime) -> None:
+        operating_mode = self._read_operating_mode()
+        if operating_mode == DHW_MODE:
+            self.current_operating_mode = operating_mode
+            self._tick_dhw(now)
+            return
+        if self.dhw_active:
+            # Left HW: reset HW state; the standard strategy restarts with settling/averaging.
+            self.dhw_active = False
+            self._dhw_controller.reset()
+            self._dhw_standby_written = None
+            self._last_dhw_eval = None
+            self._last_written_speed = None
+            self._detector.reset()
+
         row, operating_mode = self._read_entities()
         self.current_operating_mode = operating_mode
 
@@ -235,6 +275,66 @@ class AhpoCoordinator:
 
         self._notify_listeners()
 
+    def _read_float(self, key: str) -> float | None:
+        entity_id = self._entity_map.get(key)
+        state = self._hass.states.get(entity_id) if entity_id else None
+        if state is None or state.state in ("unknown", "unavailable"):
+            return None
+        try:
+            value = float(state.state)
+        except ValueError:
+            return None
+        return None if math.isnan(value) else value
+
+    def _write_dhw_speed(self, speed: float) -> None:
+        self._last_written_speed = speed
+        self._hass.async_create_task(self._async_write_pump_speed(speed))
+
+    def _tick_dhw(self, now: datetime) -> None:
+        """Hot-water strategy: hold primary flow at target + offset; standby when compressor is off."""
+        if not self.dhw_active:
+            self.dhw_active = True
+            self._dhw_controller.reset()
+            self._detector.reset()
+            self._last_dhw_eval = None
+        if (
+            self._last_dhw_eval is not None
+            and (now - self._last_dhw_eval).total_seconds() < self.dhw_control_interval_s
+        ):
+            return
+        self._last_dhw_eval = now
+
+        if self._read_error_status():
+            self._dhw_controller.reset()
+            self._dhw_standby_written = None
+            return
+
+        flow = self._read_float(CONF_PRIMARY_FLOW_TEMP)
+        target = self._read_float(CONF_DHW_TARGET_TEMP)
+        freq = self._read_float(CONF_COMPRESSOR_FREQUENCY)
+        if flow is None or target is None or freq is None:
+            return  # missing input: never write
+
+        if freq < self._min_compressor_frequency:
+            self._dhw_controller.reset()
+            standby = clamp_standby_speed(self.dhw_standby_speed, self._min_charge_pump_speed)
+            if self._dhw_standby_written != standby:
+                self._dhw_standby_written = standby
+                self._write_dhw_speed(standby)
+            self._notify_listeners()
+            return
+
+        self._dhw_standby_written = None
+        current = self._last_written_speed
+        if current is None:
+            current = self._read_float(CONF_CHARGE_PUMP_SPEED_INPUT)
+        if current is None:
+            return
+        proposed = self._dhw_controller.update(flow, target, current)
+        if proposed != current:
+            self._write_dhw_speed(proposed)
+        self._notify_listeners()
+
     def _notify_listeners(self) -> None:
         for listener in self._listeners:
             listener()
@@ -269,7 +369,7 @@ class AhpoCoordinator:
         state = self._hass.states.get(entity_id)
         if state is None or state.state in ("unknown", "unavailable"):
             return None
-        return _resolve_operating_mode(state.state)
+        return _resolve_operating_mode(state.state, self._dhw_mode_state)
 
     def _read_error_status(self) -> bool:
         """Safety fallback input: mapped error-status entity 'on', or a failed pump write, forces Phase A."""

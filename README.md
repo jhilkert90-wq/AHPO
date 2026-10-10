@@ -18,7 +18,16 @@ validated on a real system). See `Adaptive hydraulic pump optimizer v2.md` for t
 project spec, and `ahpo_sim/` for the historical-data simulator used to design and test
 the optimization core before wiring it into Home Assistant.
 
-Repository version: `2026.09.9` (tracked in `/VERSION`, `/CHANGELOG.md`, and `/docs/MEMORY_BANK.md`)
+Repository version: `2026.10.2` (tracked in `/VERSION`, `/CHANGELOG.md`, and `/docs/MEMORY_BANK.md`)
+
+## Hot-water (HW) strategy
+
+When the mapped operating-mode entity reports `hw` (configurable; `dhw`, `hotwater`, `warmwasser` are also accepted), a separate strategy replaces learning/COP/map updates:
+
+- Target: primary flow temperature = HW target temperature (sensor `dhw_target_temp`) + offset (default 1 K) while the compressor runs. Flow too hot -> pump faster; too cold -> slower (P-controller with deadband and step limit).
+- Compressor below the minimum frequency (e.g. 0 Hz): the pump runs at the adjustable `dhw_standby_speed` (%).
+- Own control interval `dhw_control_interval_s` (1-60 s), independent of the heat/cool cadence and averaging/settling times. Standby speed and interval are also available as `number` entities.
+- Leaving HW mode resets the HW controller; heat/cool restarts with its normal settling/averaging.
 
 ## Two parts of this repository
 

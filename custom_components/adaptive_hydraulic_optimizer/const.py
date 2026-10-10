@@ -32,8 +32,9 @@ REQUIRED_ENTITY_KEYS = (
 # --- Config entry keys: optional entity mapping ---
 CONF_OPERATING_MODE = "operating_mode"
 CONF_ERROR_STATUS = "error_status"
+CONF_DHW_TARGET_TEMP = "dhw_target_temp"
 
-OPTIONAL_ENTITY_KEYS = (CONF_OPERATING_MODE, CONF_ERROR_STATUS)
+OPTIONAL_ENTITY_KEYS = (CONF_OPERATING_MODE, CONF_ERROR_STATUS, CONF_DHW_TARGET_TEMP)
 
 # --- Options (tunable at runtime via the Options Flow, added in Milestone 2) ---
 OPT_CONFIDENCE_THRESHOLD = "confidence_threshold"
@@ -49,8 +50,15 @@ OPT_MIN_COMPRESSOR_FREQUENCY_HZ = "min_compressor_frequency_hz"
 OPT_MIN_CHARGE_PUMP_SPEED_PERCENT = "min_charge_pump_speed_percent"
 OPT_MIN_SPEED_STEP_PERCENT = "min_speed_step_percent"
 OPT_DECISION_LOG_ENABLED = "decision_log_enabled"
+OPT_DHW_MODE_STATE = "dhw_mode_state"
+OPT_DHW_STANDBY_SPEED_PERCENT = "dhw_standby_speed"
+OPT_DHW_CONTROL_INTERVAL_S = "dhw_control_interval_s"
+OPT_DHW_OFFSET_K = "dhw_offset_k"
+OPT_DHW_KP = "dhw_kp"
+OPT_DHW_DEADBAND_K = "dhw_deadband_k"
+OPT_DHW_MAX_STEP_PERCENT = "dhw_max_step_percent"
 
-DEFAULT_OPTIONS: dict[str, float | bool] = {
+DEFAULT_OPTIONS: dict[str, float | bool | str] = {
     OPT_CONFIDENCE_THRESHOLD: 0.7,
     OPT_CONFIDENCE_MIN_SAMPLES: 5,
     OPT_CONFIDENCE_MAX_SPREAD_ERROR_STD: 0.5,
@@ -64,6 +72,13 @@ DEFAULT_OPTIONS: dict[str, float | bool] = {
     OPT_MIN_CHARGE_PUMP_SPEED_PERCENT: 15.0,
     OPT_MIN_SPEED_STEP_PERCENT: 0.0,
     OPT_DECISION_LOG_ENABLED: False,
+    OPT_DHW_MODE_STATE: "hw",
+    OPT_DHW_STANDBY_SPEED_PERCENT: 30.0,
+    OPT_DHW_CONTROL_INTERVAL_S: 5.0,
+    OPT_DHW_OFFSET_K: 1.0,
+    OPT_DHW_KP: 5.0,
+    OPT_DHW_DEADBAND_K: 0.2,
+    OPT_DHW_MAX_STEP_PERCENT: 5.0,
 }
 
 STORAGE_VERSION = 1

@@ -16,7 +16,8 @@
           "secondary_return_temp": "Secondary return temperature (buffer inlet)",
           "charge_pump_speed_output": "Charge pump speed — setpoint (writable, optional)",
           "operating_mode": "Operating mode (optional)",
-          "error_status": "Error status (optional)"
+          "error_status": "Error status (optional)",
+          "dhw_target_temp": "Hot water target temperature sensor (optional)"
         }
       },
       "settings": {
@@ -35,6 +36,13 @@
           "spread_controller_kp": "P-controller gain Kp (%/K)",
           "spread_controller_deadband_k": "P-controller deadband (K)",
           "spread_controller_max_step_percent": "Maximum P-controller step size (%)",
+          "dhw_mode_state": "Operating-mode state meaning hot water (default: hw)",
+          "dhw_standby_speed": "HW standby pump speed (%) while compressor is stopped",
+          "dhw_control_interval_s": "HW control interval (s)",
+          "dhw_offset_k": "HW flow offset above target (K)",
+          "dhw_kp": "HW controller Kp (%/K)",
+          "dhw_deadband_k": "HW controller deadband (K)",
+          "dhw_max_step_percent": "HW max pump speed step per cycle (%)",
           "decision_log_enabled": "Enable decision logging"
         }
       }
@@ -57,7 +65,8 @@
           "secondary_return_temp": "Secondary return temperature (buffer inlet)",
           "charge_pump_speed_output": "Charge pump speed — setpoint (writable, optional)",
           "operating_mode": "Operating mode (optional)",
-          "error_status": "Error status (optional)"
+          "error_status": "Error status (optional)",
+          "dhw_target_temp": "Hot water target temperature sensor (optional)"
         }
       },
       "settings": {
@@ -76,6 +85,13 @@
           "spread_controller_kp": "P-controller gain Kp (%/K)",
           "spread_controller_deadband_k": "P-controller deadband (K)",
           "spread_controller_max_step_percent": "Maximum P-controller step size (%)",
+          "dhw_mode_state": "Operating-mode state meaning hot water (default: hw)",
+          "dhw_standby_speed": "HW standby pump speed (%) while compressor is stopped",
+          "dhw_control_interval_s": "HW control interval (s)",
+          "dhw_offset_k": "HW flow offset above target (K)",
+          "dhw_kp": "HW controller Kp (%/K)",
+          "dhw_deadband_k": "HW controller deadband (K)",
+          "dhw_max_step_percent": "HW max pump speed step per cycle (%)",
           "decision_log_enabled": "Enable decision logging"
         }
       }

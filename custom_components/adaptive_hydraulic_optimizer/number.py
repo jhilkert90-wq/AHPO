@@ -7,6 +7,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
+from .coordinator import AhpoCoordinator
 from .core.phase_manager import PhaseManager
 from .entity_base import ahpo_device_info
 from .learning import LearningEngine
@@ -18,7 +19,10 @@ async def async_setup_entry(
     data = hass.data[DOMAIN][entry.entry_id]
     phase_manager: PhaseManager = data["phase_manager"]
     learning_engine: LearningEngine = data["learning_engine"]
+    coordinator: AhpoCoordinator = data["coordinator"]
     async_add_entities([
+        AhpoDhwStandbySpeedNumber(coordinator, entry),
+        AhpoDhwControlIntervalNumber(coordinator, entry),
         AhpoConfidenceThresholdNumber(phase_manager, entry),
         AhpoSpreadControllerKpNumber(learning_engine, entry),
         AhpoSpreadControllerDeadbandNumber(learning_engine, entry),
@@ -103,5 +107,51 @@ class AhpoSpreadControllerDeadbandNumber(_AhpoRestorableNumber):
 
     async def async_set_native_value(self, value: float) -> None:
         self._learning_engine.spread_controller_deadband_k = value
+        self._attr_native_value = value
+        self.async_write_ha_state()
+
+
+class AhpoDhwStandbySpeedNumber(_AhpoRestorableNumber):
+    """Charge pump speed (%) used in hot-water mode while the compressor is stopped."""
+
+    _attr_has_entity_name = True
+    _attr_name = "HW standby speed"
+    _attr_icon = "mdi:pump"
+    _attr_native_min_value = 0.0
+    _attr_native_max_value = 100.0
+    _attr_native_step = 1.0
+    _attr_native_unit_of_measurement = "%"
+
+    def __init__(self, coordinator: AhpoCoordinator, entry: ConfigEntry) -> None:
+        self._coordinator = coordinator
+        self._attr_unique_id = f"{entry.entry_id}_dhw_standby_speed"
+        self._attr_native_value = coordinator.dhw_standby_speed
+        self._attr_device_info = ahpo_device_info(entry)
+
+    async def async_set_native_value(self, value: float) -> None:
+        self._coordinator.dhw_standby_speed = value
+        self._attr_native_value = value
+        self.async_write_ha_state()
+
+
+class AhpoDhwControlIntervalNumber(_AhpoRestorableNumber):
+    """Control interval (s) of the hot-water strategy, independent of heat/cool."""
+
+    _attr_has_entity_name = True
+    _attr_name = "HW control interval"
+    _attr_icon = "mdi:timer-outline"
+    _attr_native_min_value = 1.0
+    _attr_native_max_value = 60.0
+    _attr_native_step = 1.0
+    _attr_native_unit_of_measurement = "s"
+
+    def __init__(self, coordinator: AhpoCoordinator, entry: ConfigEntry) -> None:
+        self._coordinator = coordinator
+        self._attr_unique_id = f"{entry.entry_id}_dhw_control_interval_s"
+        self._attr_native_value = coordinator.dhw_control_interval_s
+        self._attr_device_info = ahpo_device_info(entry)
+
+    async def async_set_native_value(self, value: float) -> None:
+        self._coordinator.dhw_control_interval_s = value
         self._attr_native_value = value
         self.async_write_ha_state()

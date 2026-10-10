@@ -23,6 +23,13 @@ from .const import (
     OPT_CONFIDENCE_MIN_SAMPLES,
     OPT_CONFIDENCE_THRESHOLD,
     OPT_DECISION_LOG_ENABLED,
+    OPT_DHW_CONTROL_INTERVAL_S,
+    OPT_DHW_DEADBAND_K,
+    OPT_DHW_KP,
+    OPT_DHW_MAX_STEP_PERCENT,
+    OPT_DHW_MODE_STATE,
+    OPT_DHW_OFFSET_K,
+    OPT_DHW_STANDBY_SPEED_PERCENT,
     OPT_MIN_CHARGE_PUMP_SPEED_PERCENT,
     OPT_MIN_COMPRESSOR_FREQUENCY_HZ,
     OPT_MIN_SPEED_STEP_PERCENT,
@@ -32,6 +39,7 @@ from .const import (
     STORAGE_KEY,
 )
 from .coordinator import AhpoCoordinator
+from .core.hw_strategy import DhwController
 from .core.characteristic_map import CharacteristicMap
 from .core.phase_manager import PhaseManager
 from .decision_log import DecisionLogger
@@ -109,6 +117,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         settling_time_minutes=float(opts[OPT_SETTLING_TIME_MINUTES]),
         averaging_time_minutes=float(opts[OPT_AVERAGING_TIME_MINUTES]),
         decision_logger=decision_logger,
+        dhw_mode_state=str(opts[OPT_DHW_MODE_STATE]),
+        dhw_standby_speed=float(opts[OPT_DHW_STANDBY_SPEED_PERCENT]),
+        dhw_control_interval_s=float(opts[OPT_DHW_CONTROL_INTERVAL_S]),
+        dhw_controller=DhwController(
+            offset_k=float(opts[OPT_DHW_OFFSET_K]),
+            kp=float(opts[OPT_DHW_KP]),
+            deadband_k=float(opts[OPT_DHW_DEADBAND_K]),
+            max_step_percent=float(opts[OPT_DHW_MAX_STEP_PERCENT]),
+            min_speed=float(opts[OPT_MIN_CHARGE_PUMP_SPEED_PERCENT]),
+        ),
     )
     coordinator.async_start()
 
