@@ -1,5 +1,23 @@
 # Change History
 
+## 2026.10.1 - 2026-10-10
+- Repository bookkeeping synchronized after tracked repository changes.
+
+### Added
+- `ahpo_sim/tests/test_integration_hw_strategy.py`
+- `custom_components/adaptive_hydraulic_optimizer/core/hw_strategy.py`
+
+### Updated
+- `README.md`
+- `custom_components/adaptive_hydraulic_optimizer/__init__.py`
+- `custom_components/adaptive_hydraulic_optimizer/config_flow.py`
+- `custom_components/adaptive_hydraulic_optimizer/const.py`
+- `custom_components/adaptive_hydraulic_optimizer/coordinator.py`
+- `custom_components/adaptive_hydraulic_optimizer/number.py`
+- `custom_components/adaptive_hydraulic_optimizer/strings.json`
+- `custom_components/adaptive_hydraulic_optimizer/translations/en.json`
+
+
 ## 2026.09.9 - 2026-09-27
 - Repository bookkeeping synchronized after tracked repository changes.
 

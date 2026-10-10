@@ -10,6 +10,7 @@ from homeassistant.helpers import selector
 from .const import (
     CONF_CHARGE_PUMP_SPEED_INPUT,
     CONF_CHARGE_PUMP_SPEED_OUTPUT,
+    CONF_DHW_TARGET_TEMP,
     CONF_COMPRESSOR_FREQUENCY,
     CONF_ELECTRICAL_POWER_TOTAL,
     CONF_ERROR_STATUS,
@@ -32,6 +33,13 @@ from .const import (
     OPT_CONFIDENCE_THRESHOLD,
     OPT_DECISION_LOG_ENABLED,
     OPT_MIN_CHARGE_PUMP_SPEED_PERCENT,
+    OPT_DHW_CONTROL_INTERVAL_S,
+    OPT_DHW_DEADBAND_K,
+    OPT_DHW_KP,
+    OPT_DHW_MAX_STEP_PERCENT,
+    OPT_DHW_MODE_STATE,
+    OPT_DHW_OFFSET_K,
+    OPT_DHW_STANDBY_SPEED_PERCENT,
     OPT_MIN_COMPRESSOR_FREQUENCY_HZ,
     OPT_MIN_SPEED_STEP_PERCENT,
     OPT_SETTLING_TIME_MINUTES,
@@ -77,6 +85,7 @@ def _entity_mapping_schema(defaults: dict[str, Any] | None = None) -> vol.Schema
         _opt(CONF_CHARGE_PUMP_SPEED_OUTPUT, _WRITABLE_ENTITY_SELECTOR),
         _opt(CONF_OPERATING_MODE, _ENTITY_SELECTOR),
         _opt(CONF_ERROR_STATUS, _BINARY_ENTITY_SELECTOR),
+        _opt(CONF_DHW_TARGET_TEMP, _ENTITY_SELECTOR),
     ])
     return vol.Schema(fields)
 
@@ -104,6 +113,16 @@ def _settings_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
         _num(OPT_SPREAD_CONTROLLER_KP, 0.1, 20.0, 0.1),
         _num(OPT_SPREAD_CONTROLLER_DEADBAND_K, 0.0, 5.0, 0.05),
         _num(OPT_SPREAD_CONTROLLER_MAX_STEP_PERCENT, 1.0, 50.0, 1.0),
+        (
+            vol.Required(OPT_DHW_MODE_STATE, default=str(d.get(OPT_DHW_MODE_STATE, "hw"))),
+            selector.TextSelector(),
+        ),
+        _num(OPT_DHW_STANDBY_SPEED_PERCENT, 0.0, 100.0, 1.0),
+        _num(OPT_DHW_CONTROL_INTERVAL_S, 1.0, 60.0, 1.0),
+        _num(OPT_DHW_OFFSET_K, 0.0, 5.0, 0.1),
+        _num(OPT_DHW_KP, 0.1, 20.0, 0.1),
+        _num(OPT_DHW_DEADBAND_K, 0.0, 2.0, 0.05),
+        _num(OPT_DHW_MAX_STEP_PERCENT, 1.0, 50.0, 1.0),
         (
             vol.Required(OPT_DECISION_LOG_ENABLED, default=bool(d.get(OPT_DECISION_LOG_ENABLED, False))),
             selector.BooleanSelector(),
