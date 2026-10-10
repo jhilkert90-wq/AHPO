@@ -97,6 +97,7 @@ class AhpoCoordinator:
         self._dhw_standby_written: float | None = None
         self.dhw_active = False
         self._last_written_speed: float | None = None
+        self._last_written_speeds: dict[tuple[str, str], float] = {}
         self.last_result: LearningResult | None = None
         self.last_observation: Observation | None = None
         self.last_primary_delta_t: float | None = None
@@ -239,15 +240,16 @@ class AhpoCoordinator:
 
         if result.phase is Phase.ACTIVE and result.proposed_charge_pump_speed is not None:
             proposed = result.proposed_charge_pump_speed
+            last_written_speed = self._last_written_speed_for_mode(operating_mode)
             # Suppress writes that are smaller than the configured minimum step size.
             if (
                 self._min_speed_step_percent > 0
-                and self._last_written_speed is not None
-                and abs(proposed - self._last_written_speed) < self._min_speed_step_percent
+                and last_written_speed is not None
+                and abs(proposed - last_written_speed) < self._min_speed_step_percent
             ):
                 self._notify_listeners()
                 return
-            if proposed != self._last_written_speed:
+            if proposed != last_written_speed:
                 # Log the decision before writing if the logger is active.
                 if self._decision_logger is not None:
                     cell = result.cell
@@ -256,7 +258,7 @@ class AhpoCoordinator:
                         operating_mode=operating_mode,
                         outdoor_temp_bin=cell.outdoor_temp_bin,
                         compressor_freq_bin=cell.compressor_freq_bin,
-                        previous_speed=self._last_written_speed,
+                        previous_speed=last_written_speed,
                         proposed_speed=proposed,
                         spread_error_at_current=observation.spread_error,
                         best_abs_spread_error=cell.best_abs_spread_error,
@@ -273,7 +275,7 @@ class AhpoCoordinator:
                         is_first_observation=result.is_first_observation,
                     )
                     self._hass.async_create_task(self._decision_logger.async_log(log_entry))
-                self._last_written_speed = proposed
+                self._remember_last_written_speed(proposed, operating_mode)
                 self._hass.async_create_task(self._async_write_pump_speed(proposed, operating_mode))
 
         self._notify_listeners()
@@ -290,7 +292,7 @@ class AhpoCoordinator:
         return None if math.isnan(value) else value
 
     def _write_dhw_speed(self, speed: float) -> None:
-        self._last_written_speed = speed
+        self._remember_last_written_speed(speed, DHW_MODE)
         self._hass.async_create_task(self._async_write_pump_speed(speed, DHW_MODE))
 
     def _tick_dhw(self, now: datetime) -> None:
@@ -328,7 +330,7 @@ class AhpoCoordinator:
             return
 
         self._dhw_standby_written = None
-        current = self._last_written_speed
+        current = self._last_written_speed_for_mode(DHW_MODE)
         if current is None:
             current = self._read_float(CONF_CHARGE_PUMP_SPEED_INPUT)
         if current is None:
@@ -384,6 +386,27 @@ class AhpoCoordinator:
         state = self._hass.states.get(entity_id)
         return state is not None and state.state == "on"
 
+    def _pump_speed_output_entity(self, mode: str | None) -> str | None:
+        mode_key = {
+            "heat": CONF_CHARGE_PUMP_SPEED_OUTPUT_HEAT,
+            "cool": CONF_CHARGE_PUMP_SPEED_OUTPUT_COOL,
+            DHW_MODE: CONF_CHARGE_PUMP_SPEED_OUTPUT_DHW,
+        }.get(mode)
+        return (mode_key and self._entity_map.get(mode_key)) or self._entity_map.get(
+            CONF_CHARGE_PUMP_SPEED_OUTPUT
+        )
+
+    def _pump_speed_output_key(self, mode: str | None) -> tuple[str, str]:
+        entity_id = self._pump_speed_output_entity(mode)
+        return ("entity", entity_id) if entity_id else ("mode", mode or "")
+
+    def _last_written_speed_for_mode(self, mode: str | None) -> float | None:
+        return self._last_written_speeds.get(self._pump_speed_output_key(mode))
+
+    def _remember_last_written_speed(self, speed: float, mode: str | None) -> None:
+        self._last_written_speeds[self._pump_speed_output_key(mode)] = speed
+        self._last_written_speed = speed
+
     async def _async_write_pump_speed(self, speed: float, mode: str | None = None) -> None:
         """Write the proposed speed to the mapped pump output entity (Phase B only).
 
@@ -394,14 +417,7 @@ class AhpoCoordinator:
         skipped.  Any failure (unsupported domain, service-call error) sets
         pump_write_error, which forces Phase A on the next cycle until a write succeeds.
         """
-        mode_key = {
-            "heat": CONF_CHARGE_PUMP_SPEED_OUTPUT_HEAT,
-            "cool": CONF_CHARGE_PUMP_SPEED_OUTPUT_COOL,
-            DHW_MODE: CONF_CHARGE_PUMP_SPEED_OUTPUT_DHW,
-        }.get(mode)
-        entity_id = (mode_key and self._entity_map.get(mode_key)) or self._entity_map.get(
-            CONF_CHARGE_PUMP_SPEED_OUTPUT
-        )
+        entity_id = self._pump_speed_output_entity(mode)
         if not entity_id:
             # Passive-only mode — no writable entity configured.
             return
