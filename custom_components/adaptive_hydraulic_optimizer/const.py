@@ -14,6 +14,9 @@ CONF_OUTDOOR_TEMP = "outdoor_temp"
 CONF_CHARGE_PUMP_SPEED = "charge_pump_speed"  # legacy key — kept for migration only
 CONF_CHARGE_PUMP_SPEED_INPUT = "charge_pump_speed_input"   # read-only: measured speed sensor
 CONF_CHARGE_PUMP_SPEED_OUTPUT = "charge_pump_speed_output"  # writable: setpoint entity (optional)
+CONF_CHARGE_PUMP_SPEED_OUTPUT_HEAT = "charge_pump_speed_output_heat"  # optional per-mode override
+CONF_CHARGE_PUMP_SPEED_OUTPUT_COOL = "charge_pump_speed_output_cool"  # optional per-mode override
+CONF_CHARGE_PUMP_SPEED_OUTPUT_DHW = "charge_pump_speed_output_dhw"  # optional per-mode override
 CONF_SECONDARY_FLOW_TEMP = "secondary_flow_temp"
 CONF_SECONDARY_RETURN_TEMP = "secondary_return_temp"
 

@@ -18,6 +18,9 @@ from homeassistant.helpers.event import async_track_state_change_event, async_tr
 from .const import (
     CONF_CHARGE_PUMP_SPEED_INPUT,
     CONF_CHARGE_PUMP_SPEED_OUTPUT,
+    CONF_CHARGE_PUMP_SPEED_OUTPUT_COOL,
+    CONF_CHARGE_PUMP_SPEED_OUTPUT_DHW,
+    CONF_CHARGE_PUMP_SPEED_OUTPUT_HEAT,
     CONF_COMPRESSOR_FREQUENCY,
     CONF_DHW_TARGET_TEMP,
     CONF_ERROR_STATUS,
@@ -271,7 +274,7 @@ class AhpoCoordinator:
                     )
                     self._hass.async_create_task(self._decision_logger.async_log(log_entry))
                 self._last_written_speed = proposed
-                self._hass.async_create_task(self._async_write_pump_speed(proposed))
+                self._hass.async_create_task(self._async_write_pump_speed(proposed, operating_mode))
 
         self._notify_listeners()
 
@@ -288,7 +291,7 @@ class AhpoCoordinator:
 
     def _write_dhw_speed(self, speed: float) -> None:
         self._last_written_speed = speed
-        self._hass.async_create_task(self._async_write_pump_speed(speed))
+        self._hass.async_create_task(self._async_write_pump_speed(speed, DHW_MODE))
 
     def _tick_dhw(self, now: datetime) -> None:
         """Hot-water strategy: hold primary flow at target + offset; standby when compressor is off."""
@@ -381,7 +384,7 @@ class AhpoCoordinator:
         state = self._hass.states.get(entity_id)
         return state is not None and state.state == "on"
 
-    async def _async_write_pump_speed(self, speed: float) -> None:
+    async def _async_write_pump_speed(self, speed: float, mode: str | None = None) -> None:
         """Write the proposed speed to the mapped pump output entity (Phase B only).
 
         The speed is hard-clamped to the configured minimum before writing so the
@@ -391,7 +394,14 @@ class AhpoCoordinator:
         skipped.  Any failure (unsupported domain, service-call error) sets
         pump_write_error, which forces Phase A on the next cycle until a write succeeds.
         """
-        entity_id = self._entity_map.get(CONF_CHARGE_PUMP_SPEED_OUTPUT)
+        mode_key = {
+            "heat": CONF_CHARGE_PUMP_SPEED_OUTPUT_HEAT,
+            "cool": CONF_CHARGE_PUMP_SPEED_OUTPUT_COOL,
+            DHW_MODE: CONF_CHARGE_PUMP_SPEED_OUTPUT_DHW,
+        }.get(mode)
+        entity_id = (mode_key and self._entity_map.get(mode_key)) or self._entity_map.get(
+            CONF_CHARGE_PUMP_SPEED_OUTPUT
+        )
         if not entity_id:
             # Passive-only mode — no writable entity configured.
             return

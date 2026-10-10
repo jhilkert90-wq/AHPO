@@ -1,5 +1,16 @@
 # Change History
 
+## 2026.10.3 - 2026-10-10
+- Repository bookkeeping synchronized after tracked repository changes.
+
+### Updated
+- `custom_components/adaptive_hydraulic_optimizer/config_flow.py`
+- `custom_components/adaptive_hydraulic_optimizer/const.py`
+- `custom_components/adaptive_hydraulic_optimizer/coordinator.py`
+- `custom_components/adaptive_hydraulic_optimizer/strings.json`
+- `custom_components/adaptive_hydraulic_optimizer/translations/en.json`
+
+
 ## 2026.10.2 - 2026-10-10
 - Repository bookkeeping synchronized after tracked repository changes.
 

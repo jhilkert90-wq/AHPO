@@ -15,6 +15,9 @@
           "secondary_flow_temp": "Secondary flow temperature (buffer outlet)",
           "secondary_return_temp": "Secondary return temperature (buffer inlet)",
           "charge_pump_speed_output": "Charge pump speed — setpoint (writable, optional)",
+          "charge_pump_speed_output_heat": "Charge pump speed — setpoint for heating (writable, optional; overrides the general setpoint)",
+          "charge_pump_speed_output_cool": "Charge pump speed — setpoint for cooling (writable, optional; overrides the general setpoint)",
+          "charge_pump_speed_output_dhw": "Charge pump speed — setpoint for hot water (writable, optional; overrides the general setpoint)",
           "operating_mode": "Operating mode (optional)",
           "error_status": "Error status (optional)",
           "dhw_target_temp": "Hot water target temperature sensor (optional)"
@@ -64,6 +67,9 @@
           "secondary_flow_temp": "Secondary flow temperature (buffer outlet)",
           "secondary_return_temp": "Secondary return temperature (buffer inlet)",
           "charge_pump_speed_output": "Charge pump speed — setpoint (writable, optional)",
+          "charge_pump_speed_output_heat": "Charge pump speed — setpoint for heating (writable, optional; overrides the general setpoint)",
+          "charge_pump_speed_output_cool": "Charge pump speed — setpoint for cooling (writable, optional; overrides the general setpoint)",
+          "charge_pump_speed_output_dhw": "Charge pump speed — setpoint for hot water (writable, optional; overrides the general setpoint)",
           "operating_mode": "Operating mode (optional)",
           "error_status": "Error status (optional)",
           "dhw_target_temp": "Hot water target temperature sensor (optional)"
