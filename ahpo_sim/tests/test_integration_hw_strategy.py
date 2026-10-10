@@ -1,11 +1,15 @@
 """Tests for the hot-water (HW) control strategy and its coordinator integration."""
 from __future__ import annotations
 
+import asyncio
 import importlib
 import sys
 import types
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
 
 
 def _module(name: str) -> types.ModuleType:
@@ -92,7 +96,7 @@ def _make(hass):
     }
     c = coord_mod.AhpoCoordinator(hass, emap, None, None, dhw_standby_speed=30.0, dhw_control_interval_s=5.0)
     c.written = []
-    c._write_dhw_speed = lambda s: (c.written.append(s), setattr(c, "_last_written_speed", s))
+    c._write_dhw_speed = lambda s: (c.written.append(s), c._remember_last_written_speed(s, hw.DHW_MODE))
     return c
 
 
@@ -172,3 +176,157 @@ def test_leaving_hw_resets_state() -> None:
     c._tick(T0 + timedelta(seconds=10))
     assert not c.dhw_active and c._last_written_speed is None
     assert c._dhw_controller.last_error_k is None
+
+
+class _Services:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str, dict]] = []
+        self.error: Exception | None = None
+
+    async def async_call(self, domain, service, data, blocking=True):
+        self.calls.append((domain, service, data))
+        if self.error is not None:
+            raise self.error
+
+
+@pytest.mark.parametrize(
+    ("mode", "output_key"),
+    [
+        ("heat", "charge_pump_speed_output_heat"),
+        ("cool", "charge_pump_speed_output_cool"),
+        ("dhw", "charge_pump_speed_output_dhw"),
+    ],
+)
+def test_mode_specific_output_overrides(mode: str, output_key: str) -> None:
+    h = _Hass()
+    h.services = _Services()
+    c = coord_mod.AhpoCoordinator(
+        h,
+        {
+            "charge_pump_speed_output": "number.general",
+            "charge_pump_speed_output_heat": "number.heat",
+            "charge_pump_speed_output_cool": "number.cool",
+            "charge_pump_speed_output_dhw": "number.dhw",
+        },
+        None,
+        None,
+    )
+
+    asyncio.run(c._async_write_pump_speed(40.0, mode))
+
+    expected_entity = {
+        "charge_pump_speed_output_heat": "number.heat",
+        "charge_pump_speed_output_cool": "number.cool",
+        "charge_pump_speed_output_dhw": "number.dhw",
+    }[output_key]
+    assert h.services.calls[0][2] == {"entity_id": expected_entity, "value": 40.0}
+    assert not c.pump_write_error
+
+
+@pytest.mark.parametrize("mode", ["heat", "cool", "dhw"])
+def test_modes_fall_back_to_general_output(mode: str) -> None:
+    h = _Hass()
+    h.services = _Services()
+    c = coord_mod.AhpoCoordinator(
+        h, {"charge_pump_speed_output": "input_number.general"}, None, None
+    )
+
+    asyncio.run(c._async_write_pump_speed(40.0, mode))
+
+    assert h.services.calls[0][2] == {"entity_id": "input_number.general", "value": 40.0}
+
+
+def test_missing_output_is_passive_without_write_error() -> None:
+    h = _Hass()
+    h.services = _Services()
+    c = coord_mod.AhpoCoordinator(h, {}, None, None)
+
+    asyncio.run(c._async_write_pump_speed(40.0, "heat"))
+
+    assert h.services.calls == []
+    assert not c.pump_write_error
+
+
+def test_output_clamping_and_write_errors() -> None:
+    h = _Hass()
+    h.services = _Services()
+    c = coord_mod.AhpoCoordinator(
+        h,
+        {"charge_pump_speed_output": "number.pump"},
+        None,
+        None,
+        min_charge_pump_speed=15.0,
+    )
+    c.pump_write_error = True
+
+    asyncio.run(c._async_write_pump_speed(10.0, "heat"))
+
+    assert h.services.calls[0][2] == {"entity_id": "number.pump", "value": 15.0}
+    assert not c.pump_write_error
+
+    c._entity_map["charge_pump_speed_output"] = "sensor.unsupported"
+    asyncio.run(c._async_write_pump_speed(40.0, "heat"))
+    assert c.pump_write_error
+
+    c._entity_map["charge_pump_speed_output"] = "number.pump"
+    h.services.error = RuntimeError("service failure")
+    asyncio.run(c._async_write_pump_speed(40.0, "heat"))
+    assert c.pump_write_error
+
+
+def test_target_switch_uses_last_speed_for_selected_output(monkeypatch) -> None:
+    h = _Hass()
+    entity_map = {key: f"s.{key}" for key in coord_mod.REQUIRED_ENTITY_KEYS}
+    entity_map.update(
+        {
+            "operating_mode": "s.mode",
+            "charge_pump_speed_output_heat": "number.heat",
+            "charge_pump_speed_output_cool": "number.cool",
+        }
+    )
+    c = coord_mod.AhpoCoordinator(
+        h, entity_map, None, None, min_speed_step_percent=1.0
+    )
+    c._detector.observe = lambda **kwargs: coord_mod.Observation(
+        timestamp=kwargs["timestamp"],
+        outdoor_temp=5.0,
+        compressor_frequency=50.0,
+        charge_pump_speed=40.0,
+        cop=3.0,
+        spread_error=0.0,
+    )
+    c._learning_engine = SimpleNamespace(
+        process=lambda *args, **kwargs: SimpleNamespace(
+            phase=coord_mod.Phase.ACTIVE,
+            proposed_charge_pump_speed=50.0,
+            cell=None,
+        )
+    )
+    monkeypatch.setattr(coord_mod, "calculate_cop_for_row", lambda *args, **kwargs: 3.0)
+    monkeypatch.setattr(
+        coord_mod, "calculate_spread_error_for_row", lambda *args, **kwargs: 0.0
+    )
+    for key in coord_mod.REQUIRED_ENTITY_KEYS:
+        h.states.d[f"s.{key}"] = _State("40")
+
+    _set(h, mode="heat")
+    c._tick(T0)
+    _set(h, mode="cool")
+    c._tick(T0 + timedelta(seconds=5))
+
+    assert c._last_written_speeds[("entity", "number.heat")] == 50.0
+    assert c._last_written_speeds[("entity", "number.cool")] == 50.0
+
+
+def test_dhw_transition_starts_from_dhw_target_speed() -> None:
+    h = _Hass()
+    c = _make(h)
+    c._entity_map["charge_pump_speed_output_dhw"] = "number.dhw"
+    c._last_written_speed = 50.0
+    c._last_written_speeds[("entity", "number.heat")] = 50.0
+    _set(h, flow=55, target=50, freq=50, speed=40, mode="hw")
+
+    c._tick(T0)
+
+    assert c.written == [45.0]
+    assert c._last_written_speeds[("entity", "number.dhw")] == 45.0

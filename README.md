@@ -18,7 +18,7 @@ validated on a real system). See `Adaptive hydraulic pump optimizer v2.md` for t
 project spec, and `ahpo_sim/` for the historical-data simulator used to design and test
 the optimization core before wiring it into Home Assistant.
 
-Repository version: `2026.10.2` (tracked in `/VERSION`, `/CHANGELOG.md`, and `/docs/MEMORY_BANK.md`)
+Repository version: `2026.10.4` (tracked in `/VERSION`, `/CHANGELOG.md`, and `/docs/MEMORY_BANK.md`)
 
 ## Hot-water (HW) strategy
 
@@ -59,8 +59,10 @@ When the mapped operating-mode entity reports `hw` (configurable; `dhw`, `hotwat
    - **Secondary flow/return temperature** (buffer/separator secondary side — required for spread-error calculation)
    - Total electrical power, compressor frequency, outdoor temperature
    - Charge pump speed — measured input (**required**; sensor/number/input_number)
-   - Charge pump speed — writable setpoint (**optional**; `number` or `input_number`)
-   - Operating mode (`heat` or `cool` text state only), error status
+   - Charge pump speed — writable setpoint (**optional general fallback**; `number` or `input_number`)
+   - Optional writable charge-pump setpoint overrides for **heating**, **cooling**, and **DHW** (`number` or `input_number`)
+     - Each mode uses its override when configured, otherwise it falls back to the general setpoint. If neither is configured, no pump writes are made.
+   - Operating mode (`heat` or `cool`, plus the configured DHW state), error status
 
 ### Operating mode requirement
 
