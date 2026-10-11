@@ -44,6 +44,7 @@
           "dhw_control_interval_s": "HW control interval (s)",
           "dhw_offset_k": "HW flow offset above target (K)",
           "dhw_kp": "HW controller Kp (%/K)",
+          "dhw_kd": "HW controller Kd (%/K per interval, damping)",
           "dhw_deadband_k": "HW controller deadband (K)",
           "dhw_max_step_percent": "HW max pump speed step per cycle (%)",
           "decision_log_enabled": "Enable decision logging"
@@ -96,6 +97,7 @@
           "dhw_control_interval_s": "HW control interval (s)",
           "dhw_offset_k": "HW flow offset above target (K)",
           "dhw_kp": "HW controller Kp (%/K)",
+          "dhw_kd": "HW controller Kd (%/K per interval, damping)",
           "dhw_deadband_k": "HW controller deadband (K)",
           "dhw_max_step_percent": "HW max pump speed step per cycle (%)",
           "decision_log_enabled": "Enable decision logging"

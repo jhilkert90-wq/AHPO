@@ -29,7 +29,12 @@ def clamp_standby_speed(speed: float, min_speed: float) -> float:
 
 
 class DhwController:
-    """Proportional controller with deadband and step limit for the HW charge pump."""
+    """PD controller with deadband and step limit for the HW charge pump.
+
+    The derivative term (kd * error change per evaluation) damps the oscillation caused by
+    the slow, delayed plant (flow sensor lag) by braking when the flow already moves toward
+    the target.
+    """
 
     def __init__(
         self,
@@ -39,7 +44,9 @@ class DhwController:
         max_step_percent: float = 5.0,
         min_speed: float = 15.0,
         max_speed: float = 100.0,
+        kd: float = 0.0,
     ) -> None:
+        self.kd = kd
         self.offset_k = offset_k
         self.kp = kp
         self.deadband_k = deadband_k
@@ -56,8 +63,10 @@ class DhwController:
         if any(math.isnan(v) for v in (flow_temp, target_temp, current_speed)):
             return current_speed
         error = flow_temp - (target_temp + self.offset_k)
+        trend = 0.0 if self.last_error_k is None else error - self.last_error_k
         self.last_error_k = error
         if abs(error) <= self.deadband_k:
             return current_speed
-        step = max(-self.max_step_percent, min(self.max_step_percent, self.kp * error))
+        step = self.kp * error + self.kd * trend
+        step = max(-self.max_step_percent, min(self.max_step_percent, step))
         return min(self.max_speed, max(self.min_speed, current_speed + step))
