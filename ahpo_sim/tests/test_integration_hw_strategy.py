@@ -59,6 +59,12 @@ def test_controller_directions_and_limits() -> None:
     assert c.update(60.0, 50.0, 98.0) == 100.0           # ceiling
 
 
+def test_derivative_damps_approach() -> None:
+    c = hw.DhwController(offset_k=1.0, kp=1.0, deadband_k=0.2, max_step_percent=5.0, kd=4.0)
+    c.update(56.0, 50.0, 50.0)                           # error +5, no trend yet
+    assert c.update(52.5, 50.0, 50.0) == 45.0            # still hot but falling fast -> slows (step-limited)
+
+
 def test_mode_resolution() -> None:
     r = coord_mod._resolve_operating_mode
     assert r("hw") == "dhw" and r("Warmwasser") == "dhw" and r("hotwater") == "dhw"

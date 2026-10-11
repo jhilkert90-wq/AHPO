@@ -38,6 +38,7 @@ from .const import (
     OPT_MIN_CHARGE_PUMP_SPEED_PERCENT,
     OPT_DHW_CONTROL_INTERVAL_S,
     OPT_DHW_DEADBAND_K,
+    OPT_DHW_KD,
     OPT_DHW_KP,
     OPT_DHW_MAX_STEP_PERCENT,
     OPT_DHW_MODE_STATE,
@@ -127,6 +128,7 @@ def _settings_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
         _num(OPT_DHW_CONTROL_INTERVAL_S, 1.0, 60.0, 1.0),
         _num(OPT_DHW_OFFSET_K, 0.0, 5.0, 0.1),
         _num(OPT_DHW_KP, 0.1, 20.0, 0.1),
+        _num(OPT_DHW_KD, 0.0, 50.0, 0.5),
         _num(OPT_DHW_DEADBAND_K, 0.0, 2.0, 0.05),
         _num(OPT_DHW_MAX_STEP_PERCENT, 1.0, 50.0, 1.0),
         (

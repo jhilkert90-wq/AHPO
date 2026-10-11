@@ -25,6 +25,7 @@ from .const import (
     OPT_DECISION_LOG_ENABLED,
     OPT_DHW_CONTROL_INTERVAL_S,
     OPT_DHW_DEADBAND_K,
+    OPT_DHW_KD,
     OPT_DHW_KP,
     OPT_DHW_MAX_STEP_PERCENT,
     OPT_DHW_MODE_STATE,
@@ -123,6 +124,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         dhw_controller=DhwController(
             offset_k=float(opts[OPT_DHW_OFFSET_K]),
             kp=float(opts[OPT_DHW_KP]),
+            kd=float(opts[OPT_DHW_KD]),
             deadband_k=float(opts[OPT_DHW_DEADBAND_K]),
             max_step_percent=float(opts[OPT_DHW_MAX_STEP_PERCENT]),
             min_speed=float(opts[OPT_MIN_CHARGE_PUMP_SPEED_PERCENT]),

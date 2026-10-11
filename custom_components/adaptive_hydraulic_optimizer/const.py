@@ -59,6 +59,7 @@ OPT_DHW_CONTROL_INTERVAL_S = "dhw_control_interval_s"
 OPT_DHW_OFFSET_K = "dhw_offset_k"
 OPT_DHW_KP = "dhw_kp"
 OPT_DHW_DEADBAND_K = "dhw_deadband_k"
+OPT_DHW_KD = "dhw_kd"
 OPT_DHW_MAX_STEP_PERCENT = "dhw_max_step_percent"
 
 DEFAULT_OPTIONS: dict[str, float | bool | str] = {
@@ -77,11 +78,12 @@ DEFAULT_OPTIONS: dict[str, float | bool | str] = {
     OPT_DECISION_LOG_ENABLED: False,
     OPT_DHW_MODE_STATE: "hw",
     OPT_DHW_STANDBY_SPEED_PERCENT: 30.0,
-    OPT_DHW_CONTROL_INTERVAL_S: 5.0,
+    OPT_DHW_CONTROL_INTERVAL_S: 10.0,
     OPT_DHW_OFFSET_K: 1.0,
-    OPT_DHW_KP: 5.0,
-    OPT_DHW_DEADBAND_K: 0.2,
-    OPT_DHW_MAX_STEP_PERCENT: 5.0,
+    OPT_DHW_KP: 1.0,
+    OPT_DHW_KD: 4.0,
+    OPT_DHW_DEADBAND_K: 0.5,
+    OPT_DHW_MAX_STEP_PERCENT: 2.0,
 }
 
 STORAGE_VERSION = 1
