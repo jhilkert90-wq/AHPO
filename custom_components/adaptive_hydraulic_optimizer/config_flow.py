@@ -16,6 +16,7 @@ from .const import (
     CONF_DHW_TARGET_TEMP,
     CONF_COMPRESSOR_FREQUENCY,
     CONF_ELECTRICAL_POWER_TOTAL,
+    CONF_BLOCKING_ENTITY,
     CONF_ERROR_STATUS,
     CONF_OPERATING_MODE,
     CONF_OUTDOOR_TEMP,
@@ -93,6 +94,7 @@ def _entity_mapping_schema(defaults: dict[str, Any] | None = None) -> vol.Schema
         _opt(CONF_OPERATING_MODE, _ENTITY_SELECTOR),
         _opt(CONF_ERROR_STATUS, _BINARY_ENTITY_SELECTOR),
         _opt(CONF_DHW_TARGET_TEMP, _ENTITY_SELECTOR),
+        _opt(CONF_BLOCKING_ENTITY, _BINARY_ENTITY_SELECTOR),
     ])
     return vol.Schema(fields)
 
