@@ -23,6 +23,7 @@ from .const import (
     CONF_CHARGE_PUMP_SPEED_OUTPUT_HEAT,
     CONF_COMPRESSOR_FREQUENCY,
     CONF_DHW_TARGET_TEMP,
+    CONF_BLOCKING_ENTITY,
     CONF_ERROR_STATUS,
     CONF_PRIMARY_FLOW_TEMP,
     CONF_OPERATING_MODE,
@@ -104,6 +105,7 @@ class AhpoCoordinator:
         self.last_secondary_delta_t: float | None = None
         self.current_operating_mode: str | None = None
         self.pump_write_error = False
+        self.blocked = False
         self._unsubscribers: list[Any] = []
         self._listeners: list[Callable[[], None]] = []
 
@@ -156,6 +158,24 @@ class AhpoCoordinator:
         self._tick(now)
 
     def _tick(self, now: datetime) -> None:
+        if self._read_blocking():
+            # Defrost: the heat pump drives the primary pump itself. Ignore everything.
+            if not self.blocked:
+                self.blocked = True
+                self._detector.reset()
+                self._dhw_controller.reset()
+                self._learning_engine.reset_controllers()
+                self._dhw_standby_written = None
+                self._last_dhw_eval = None
+                self._last_written_speeds.clear()
+                self._last_written_speed = None
+            self._notify_listeners()
+            return
+        if self.blocked:
+            self.blocked = False
+            self._detector.reset()
+            self._notify_listeners()
+
         operating_mode = self._read_operating_mode()
         if operating_mode == DHW_MODE:
             self.current_operating_mode = operating_mode
@@ -376,6 +396,14 @@ class AhpoCoordinator:
             return None
         return _resolve_operating_mode(state.state, self._dhw_mode_state)
 
+    def _read_blocking(self) -> bool:
+        """Blocking entity 'on' (e.g. defrosting) suspends the whole control loop."""
+        entity_id = self._entity_map.get(CONF_BLOCKING_ENTITY)
+        if not entity_id:
+            return False
+        state = self._hass.states.get(entity_id)
+        return state is not None and state.state == "on"
+
     def _read_error_status(self) -> bool:
         """Safety fallback input: mapped error-status entity 'on', or a failed pump write, forces Phase A."""
         if self.pump_write_error:
@@ -435,6 +463,9 @@ class AhpoCoordinator:
                 speed,
                 clamped_speed,
             )
+
+        if self.blocked or self._read_blocking():
+            return
 
         try:
             await self._hass.services.async_call(

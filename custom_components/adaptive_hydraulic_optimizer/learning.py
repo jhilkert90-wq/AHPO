@@ -51,6 +51,10 @@ class LearningEngine:
         self._spread_controller_max_step_percent = spread_controller_max_step_percent
         self._controllers: dict[tuple[str, float, float], ProportionalSpreadController] = {}
 
+    def reset_controllers(self) -> None:
+        """Discard per-cell controller state without changing the learned maps."""
+        self._controllers.clear()
+
     @property
     def min_charge_pump_speed(self) -> float:
         return self._min_charge_pump_speed

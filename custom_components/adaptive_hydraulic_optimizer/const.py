@@ -36,8 +36,14 @@ REQUIRED_ENTITY_KEYS = (
 CONF_OPERATING_MODE = "operating_mode"
 CONF_ERROR_STATUS = "error_status"
 CONF_DHW_TARGET_TEMP = "dhw_target_temp"
+CONF_BLOCKING_ENTITY = "blocking_entity"
 
-OPTIONAL_ENTITY_KEYS = (CONF_OPERATING_MODE, CONF_ERROR_STATUS, CONF_DHW_TARGET_TEMP)
+OPTIONAL_ENTITY_KEYS = (
+    CONF_OPERATING_MODE,
+    CONF_ERROR_STATUS,
+    CONF_DHW_TARGET_TEMP,
+    CONF_BLOCKING_ENTITY,
+)
 
 # --- Options (tunable at runtime via the Options Flow, added in Milestone 2) ---
 OPT_CONFIDENCE_THRESHOLD = "confidence_threshold"

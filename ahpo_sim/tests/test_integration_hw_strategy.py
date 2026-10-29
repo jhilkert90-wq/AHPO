@@ -99,6 +99,7 @@ def _make(hass):
         "primary_flow_temp": "s.flow", "dhw_target_temp": "s.target",
         "compressor_frequency": "s.freq", "charge_pump_speed_input": "s.speed",
         "operating_mode": "s.mode", "error_status": "s.error",
+        "blocking_entity": "s.blocking",
     }
     c = coord_mod.AhpoCoordinator(hass, emap, None, None, dhw_standby_speed=30.0, dhw_control_interval_s=5.0)
     c.written = []
@@ -278,6 +279,49 @@ def test_output_clamping_and_write_errors() -> None:
     h.services.error = RuntimeError("service failure")
     asyncio.run(c._async_write_pump_speed(40.0, "heat"))
     assert c.pump_write_error
+
+
+@pytest.mark.parametrize("block_source", ["coordinator", "entity"])
+def test_queued_pump_write_is_suppressed_while_blocked(block_source: str) -> None:
+    h = _Hass()
+    h.services = _Services()
+    c = coord_mod.AhpoCoordinator(
+        h,
+        {"charge_pump_speed_output": "number.pump", "blocking_entity": "s.blocking"},
+        None,
+        None,
+    )
+    if block_source == "coordinator":
+        c.blocked = True
+    else:
+        h.states.d["s.blocking"] = _State("on")
+
+    asyncio.run(c._async_write_pump_speed(40.0, "heat"))
+
+    assert h.services.calls == []
+
+
+def test_block_entry_resets_controllers_but_preserves_learned_maps() -> None:
+    from custom_components.adaptive_hydraulic_optimizer.core.characteristic_map import CharacteristicMap
+    from custom_components.adaptive_hydraulic_optimizer.core.phase_manager import PhaseManager
+    from custom_components.adaptive_hydraulic_optimizer.learning import LearningEngine
+
+    cool_map = CharacteristicMap()
+    heat_map = CharacteristicMap()
+    cool_map.update(5.0, 40.0, 30.0, 0.1)
+    heat_map.update(5.0, 40.0, 35.0, 0.2)
+    engine = LearningEngine(cool_map, heat_map, PhaseManager(heat_map))
+    engine._controllers[("heat", 5.0, 40.0)] = object()
+    h = _Hass()
+    c = _make(h)
+    c._learning_engine = engine
+    h.states.d["s.blocking"] = _State("on")
+
+    c._tick(T0)
+
+    assert engine._controllers == {}
+    assert len(cool_map.all_cells()) == 1
+    assert len(heat_map.all_cells()) == 1
 
 
 def test_target_switch_uses_last_speed_for_selected_output(monkeypatch) -> None:

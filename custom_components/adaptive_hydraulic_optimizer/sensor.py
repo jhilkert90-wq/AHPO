@@ -49,6 +49,8 @@ def _confidence_score(coordinator: AhpoCoordinator) -> float | None:
 
 
 def _operating_phase(coordinator: AhpoCoordinator) -> str | None:
+    if coordinator.blocked:
+        return "blocked/defrosting"
     result = coordinator.last_result
     return result.phase.value if result else None
 
