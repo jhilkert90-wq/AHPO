@@ -164,6 +164,7 @@ class AhpoCoordinator:
                 self.blocked = True
                 self._detector.reset()
                 self._dhw_controller.reset()
+                self._learning_engine.reset_controllers()
                 self._dhw_standby_written = None
                 self._last_dhw_eval = None
                 self._last_written_speeds.clear()
@@ -462,6 +463,9 @@ class AhpoCoordinator:
                 speed,
                 clamped_speed,
             )
+
+        if self.blocked or self._read_blocking():
+            return
 
         try:
             await self._hass.services.async_call(

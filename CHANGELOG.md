@@ -1,5 +1,14 @@
 # Change History
 
+## 2026.10.8 - 2026-10-29
+- Repository bookkeeping synchronized after tracked repository changes.
+
+### Updated
+- `ahpo_sim/tests/test_integration_hw_strategy.py`
+- `custom_components/adaptive_hydraulic_optimizer/coordinator.py`
+- `custom_components/adaptive_hydraulic_optimizer/learning.py`
+
+
 ## 2026.10.7 - 2026-10-29
 - Repository bookkeeping synchronized after tracked repository changes.
 
